@@ -1,0 +1,8 @@
+{
+  "domain": "energy_core",
+  "name": "Homie Energy Core",
+  "version": "0.1.0",
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "requirements": []
+}

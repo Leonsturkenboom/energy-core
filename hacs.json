@@ -1,0 +1,6 @@
+{
+  "name": "Homie Energy Core",
+  "domain": "energy_core",
+  "content_in_root": false,
+  "render_readme": true
+}
