@@ -3,9 +3,9 @@
   "name": "Homie Energy Core",
   "version": "0.1.0",
   "config_flow": true,
-  "documentation": "https://github.com/andy-moore-energy/homie-energy-core",
-  "issue_tracker": "https://github.com/andy-moore-energy/homie-energy-core/issues",
-  "codeowners": ["@andy-moore-energy", "@Leonsturkenboom"],
+  "documentation": "https://github.com/Leonsturkenboom/energy-core",
+  "issue_tracker": "https://github.com/Leonsturkenboom/energy-core/issues",
+  "codeowners": ["@Leonsturkenboom"]
   "iot_class": "local_polling",
   "requirements": []
 }
