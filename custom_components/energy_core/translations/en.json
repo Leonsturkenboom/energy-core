@@ -1,0 +1,10 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Homie Energy Core",
+        "description": "Select entities for inputs A–F."
+      }
+    }
+  }
+}
