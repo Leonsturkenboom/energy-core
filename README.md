@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="logo.png" width="160" alt="Homie Energy Core logo">
+</p>
+
 # Homie Energy Core
 
 Homie Energy Core is a Home Assistant custom integration that standardises **energy distribution KPIs** and provides **ready-to-use dashboard cards**, based on a robust and HA-safe calculation model.
@@ -9,19 +13,20 @@ The integration is intentionally lightweight and deterministic:
 
 ## Core concept (important)
 
-Energy Core does **not** calculate energy from power.
+Energy Core does **not** calculate energy from power (W).
 
 Instead:
 - All input sensors are **cumulative energy totals** (kWh / Wh)
 - Energy Core calculates **delta values per fixed interval**
-- All outputs represent **energy per interval**
+- All base outputs represent **energy per interval**
 - Period totals are built by **summing those deltas**
 
 This approach:
 - avoids power sampling errors
 - survives restarts safely
-- aligns with Home Assistant statistics
+- does not rely on HA statistics
 - produces stable, reproducible results
+- prevents historical bias and double-counting
 
 ---
 
@@ -29,7 +34,8 @@ This approach:
 
 ### Core energy deltas (per interval)
 
-These sensors represent **energy during the last calculation interval** (kWh per interval):
+These sensors represent **energy during the last calculation interval**  
+(**kWh per interval**, not cumulative totals):
 
 - **EC Imported Energy**
 - **EC Exported Energy**
@@ -37,8 +43,8 @@ These sensors represent **energy during the last calculation interval** (kWh per
 - **EC Battery Charge Energy**
 - **EC Battery Discharge Energy**
 
-> These are **not cumulative totals**.  
-> They are interval-based energy deltas.
+> These sensors reset every interval by design.  
+> They are intended as building blocks for period counters and dashboards.
 
 ---
 
@@ -63,8 +69,8 @@ All values represent **kWh during the interval**.
 - **EC Net Energy Use (On-site)**
 - **EC Net Energy Imported (Grid)**
 
-These KPIs are **accounting values**, derived from interval deltas.  
-In systems with batteries, they represent energy accounting, not instantaneous physical flow.
+These KPIs represent **energy accounting**, not instantaneous physical flows.  
+Negative values are valid and expected in net-export scenarios.
 
 ---
 
@@ -72,7 +78,9 @@ In systems with batteries, they represent energy accounting, not instantaneous p
 
 - **EC Self Sufficiency (%)**
 
-Calculated per interval and suitable for aggregation over time.
+Calculated from interval deltas.  
+For period and lifetime values, the ratio is recomputed from accumulated energy parts  
+(**never by averaging percentages**).
 
 ---
 
@@ -86,11 +94,13 @@ Based on the selected CO₂ intensity sensor:
 
 Units: **g CO₂-eq per interval**
 
+Negative values for *Net* emissions indicate avoided emissions.
+
 ---
 
 ## Built-in period counters (always included)
 
-For **every EC energy sensor**, Energy Core automatically generates counters for:
+For **every EC energy and emissions sensor**, Energy Core automatically generates:
 
 - 15 minutes  
 - Hour  
@@ -98,14 +108,20 @@ For **every EC energy sensor**, Energy Core automatically generates counters for
 - Week  
 - Month  
 - Year  
+- **Overall (lifetime)**  
 
 These counters:
 - **sum interval-based delta values**
 - are **restart-safe**
 - do **not rely on Home Assistant statistics**
+- accumulate **once per calculation interval**
 - never double-count data
 
-> Period counters accumulate only once per calculation interval.
+### Self-sufficiency period counters
+Self-sufficiency also includes:
+- Hour / Day / Week / Month / Year / **Overall**
+
+These are calculated correctly as **ratios over accumulated energy**, not summed percentages.
 
 ---
 
@@ -122,7 +138,7 @@ Required:
 - **CO₂ intensity** (g CO₂-eq / kWh)
 
 Optional:
-- **Presence / occupancy entity** (for notifications and coaching)
+- **Presence / occupancy entity** (for future coaching and notifications)
 
 ---
 
@@ -139,7 +155,7 @@ The configuration wizard:
 - allows multiple sensors per category
 - validates **kWh / Wh** units
 - prevents selection of **W (power)** sensors
-- checks `state_class` compatibility
+- checks `device_class` and `state_class`
 - prevents accidental double-counting
 
 ---
@@ -148,7 +164,7 @@ The configuration wizard:
 
 Energy Core includes ready-to-copy YAML dashboard cards:
 
-- Energy distribution (kWh)
+- Energy distribution
 - Daily energy balance
 - Weekly energy balance
 - Monthly energy balance
@@ -158,6 +174,8 @@ Energy Core includes ready-to-copy YAML dashboard cards:
 All graphs are configured to **sum interval values**, not average them.
 
 Cards can be found in: /cards
+
+
 ---
 
 ## Installation (HACS)
@@ -182,11 +200,17 @@ Cards can be found in: /cards
 
 ## Version history
 
+### 0.3.1
+- Added **Overall (lifetime)** counters
+- Added period counters for **emissions**
+- Added ratio-correct period counters for **self sufficiency**
+- Added repository icon and logo
+
 ### 0.3.0
 - Switched to **interval-based delta energy model**
 - All EC sensors now represent **kWh per interval**
-- Restart-safe period accumulators
-- No reliance on HA statistics or baselines
+- Restart-safe accumulators
+- No reliance on HA statistics
 - Prevents historical bias and double-counting
 
 ### 0.2.x
