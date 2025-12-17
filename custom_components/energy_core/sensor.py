@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, List, Dict
+from typing import Any, Callable, Optional, List
 from datetime import datetime, timedelta
 import asyncio
 
@@ -240,14 +240,16 @@ DESCRIPTIONS: list[ECDescription] = [
         include_overall_counter=False,
     ),
 
-    # Emissions (signed allowed for net)
+    # Emissions (outputs in kg CO2-eq; input intensity is g/kWh, so divide by 1000)
     ECDescription(
         key="ec_emissions_imported",
         name="EC Emissions Imported",
         icon="mdi:cloud-upload",
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="g CO2-eq",
-        value_fn=lambda c: (_deltas(c).dA_imported_kwh * _totals(c).co2_intensity_g_per_kwh) if _interval_valid(c) else 0.0,
+        native_unit_of_measurement="kg CO2-eq",
+        value_fn=lambda c: (
+            (_deltas(c).dA_imported_kwh * _totals(c).co2_intensity_g_per_kwh) / 1000.0
+        ) if _interval_valid(c) else 0.0,
         allow_negative=False,
     ),
     ECDescription(
@@ -255,8 +257,10 @@ DESCRIPTIONS: list[ECDescription] = [
         name="EC Emissions Avoided",
         icon="mdi:cloud-download",
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="g CO2-eq",
-        value_fn=lambda c: (_deltas(c).dB_exported_kwh * _totals(c).co2_intensity_g_per_kwh) if _interval_valid(c) else 0.0,
+        native_unit_of_measurement="kg CO2-eq",
+        value_fn=lambda c: (
+            (_deltas(c).dB_exported_kwh * _totals(c).co2_intensity_g_per_kwh) / 1000.0
+        ) if _interval_valid(c) else 0.0,
         allow_negative=False,
     ),
     ECDescription(
@@ -264,8 +268,10 @@ DESCRIPTIONS: list[ECDescription] = [
         name="EC Emissions Net",
         icon="mdi:cloud",
         state_class=SensorStateClass.MEASUREMENT,
-        native_unit_of_measurement="g CO2-eq",
-        value_fn=lambda c: ((_deltas(c).dA_imported_kwh - _deltas(c).dB_exported_kwh) * _totals(c).co2_intensity_g_per_kwh) if _interval_valid(c) else 0.0,
+        native_unit_of_measurement="kg CO2-eq",
+        value_fn=lambda c: (
+            ((_deltas(c).dA_imported_kwh - _deltas(c).dB_exported_kwh) * _totals(c).co2_intensity_g_per_kwh) / 1000.0
+        ) if _interval_valid(c) else 0.0,
         allow_negative=True,
     ),
 ]
@@ -415,7 +421,7 @@ class EnergyCoreSensor(CoordinatorEntity[EnergyCoreCoordinator], SensorEntity):
 
 
 # -----------------------------
-# Generic sum period counter (works for kWh and g CO2-eq; signed optional)
+# Generic sum period counter (works for kWh and kg CO2-eq; signed optional)
 # -----------------------------
 class EnergyCoreSumPeriodSensor(CoordinatorEntity[EnergyCoreCoordinator], SensorEntity):
     _attr_has_entity_name = True

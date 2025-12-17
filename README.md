@@ -200,7 +200,23 @@ Cards can be found in: /cards
 
 ## Version history
 
-### 0.3.1
+### 0.3.3
+- Hardened interval-based delta engine against sensor glitches
+- Prevented energy spikes caused by `unknown` / `unavailable` input states
+- Invalid intervals no longer update baselines or accumulators
+- Added explicit `interval_valid` and `interval_reason` attributes
+- Switched all emissions outputs from **g CO₂-eq** to **kg CO₂-eq**
+- Emissions calculations now divide CO₂ intensity (g/kWh) by 1000
+- Period and overall emission counters now accumulate **kg CO₂-eq**
+- Ensured day/month/year/overall counters cannot be corrupted by restarts or meter resets
+
+### 0.3.2
+- Hardened interval-based delta engine against sensor glitches
+- Prevented energy spikes caused by unknown / unavailable input states
+- Invalid intervals no longer update baselines or accumulators
+- Added explicit interval_valid and interval_reason attributes
+
+### 0.3.1 / 0.3.2
 - Added **Overall (lifetime)** counters
 - Added period counters for **emissions**
 - Added ratio-correct period counters for **self sufficiency**
