@@ -39,29 +39,10 @@ series:
     group_by: { func: max, duration: 1h, fill: zero }
     show: { in_legend: true, legend_value: false, in_chart: true }
 
-  - entity: sensor.ec_exported_battery_energy_hour
-    name: Battery
+  - entity: sensor.ec_net_battery_flow_hour
+    name: Battery Flow
     color: rgba(52, 168, 83, 1)
     type: column
     stack_group: energy
-    transform: |
-      if (x === null || x === undefined || isNaN(x)) return null;
-      return x * -1;
     group_by: { func: max, duration: 1h, fill: zero }
     show: { in_legend: true, legend_value: false, in_chart: true }
-
-  - entity: sensor.ec_self_stored_energy_hour
-    name: Battery (Production)
-    color: rgba(52, 168, 83, 1)
-    type: column
-    stack_group: energy
-    group_by: { func: max, duration: 1h, fill: zero }
-    show: { in_legend: false }
-
-  - entity: sensor.ec_imported_battery_energy_hour
-    name: Battery (Imported)
-    color: rgba(52, 168, 83, 1)
-    type: column
-    stack_group: energy
-    group_by: { func: max, duration: 1h, fill: zero }
-    show: { in_legend: false }

@@ -39,9 +39,17 @@ series:
     group_by: { func: max, duration: 365d, fill: zero }
     show: { in_legend: true, legend_value: false, in_chart: true }
 
-  - entity: sensor.ec_exported_battery_energy_year
-    name: Battery
+  - entity: sensor.ec_battery_discharge_energy_year
+    name: Battery Discharge
     color: rgba(52, 168, 83, 1)
+    type: column
+    stack_group: energy
+    group_by: { func: max, duration: 365d, fill: zero }
+    show: { in_legend: true, legend_value: false, in_chart: true }
+
+  - entity: sensor.ec_battery_charge_energy_year
+    name: Battery Charge
+    color: rgba(34, 139, 34, 0.7)
     type: column
     stack_group: energy
     transform: |
@@ -49,19 +57,3 @@ series:
       return x * -1;
     group_by: { func: max, duration: 365d, fill: zero }
     show: { in_legend: true, legend_value: false, in_chart: true }
-
-  - entity: sensor.ec_self_stored_energy_year
-    name: Battery (Production)
-    color: rgba(52, 168, 83, 1)
-    type: column
-    stack_group: energy
-    group_by: { func: max, duration: 365d, fill: zero }
-    show: { in_legend: false }
-
-  - entity: sensor.ec_imported_battery_energy_year
-    name: Battery (Imported)
-    color: rgba(52, 168, 83, 1)
-    type: column
-    stack_group: energy
-    group_by: { func: max, duration: 365d, fill: zero }
-    show: { in_legend: false }
