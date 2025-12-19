@@ -20,6 +20,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .coordinator import EnergyCoreCoordinator, EnergyDeltas, EnergyTotals
+from .notifications import NOTIFICATION_RULES, get_active_notifications
 
 
 def _deltas(coordinator: EnergyCoreCoordinator) -> EnergyDeltas:
@@ -59,6 +60,7 @@ class ECDescription(SensorEntityDescription):
     allow_negative: bool = False  # whether period/lifetime sums may go below zero
     include_period_counters: bool = True
     include_overall_counter: bool = True  # overall = lifetime-like
+    period_keys: list[str] | None = None  # if set, only create these periods (e.g., ["p15m", "phour", "pday"])
 
 
 # -----------------------------
@@ -115,6 +117,21 @@ DESCRIPTIONS: list[ECDescription] = [
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _deltas(c).dE_discharge_kwh if _interval_valid(c) else 0.0,
         allow_negative=False,
+    ),
+    ECDescription(
+        key="ec_net_battery_flow",
+        name="EC Net Battery Flow",
+        icon="mdi:battery-sync",
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement="kWh",
+        value_fn=lambda c: (
+            _deltas(c).dE_discharge_kwh - _deltas(c).dD_charge_kwh
+        ) if _interval_valid(c) else 0.0,
+        allow_negative=True,
+        include_period_counters=True,
+        include_overall_counter=False,  # Not useful for cumulative totals
+        period_keys=["p15m", "phour", "pday"],  # Only short periods, not week/month/year
     ),
 
     # Derived splits (kWh per interval)
@@ -609,6 +626,82 @@ class EnergyCoreSelfSufficiencyPeriodSensor(CoordinatorEntity[EnergyCoreCoordina
 
 
 # -----------------------------
+# Notification sensor
+# -----------------------------
+class EnergyCoreNotificationSensor(CoordinatorEntity[EnergyCoreCoordinator], SensorEntity):
+    """Notification sensor that shows warnings/info/tips."""
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:bell-alert"
+
+    def __init__(self, coordinator: EnergyCoreCoordinator, rule_key: str, rule_name: str) -> None:
+        super().__init__(coordinator)
+        self._rule_key = rule_key
+        self._rule_name = rule_name
+
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_{rule_key}"
+        self._attr_name = f"{rule_name}"
+
+    @property
+    def native_value(self) -> str:
+        """Return the notification message or 'off' if not active."""
+        # Check if notifications are enabled
+        notifications_enabled = self.hass.states.get("input_boolean.ec_notifications_enabled")
+        if notifications_enabled and notifications_enabled.state == "off":
+            return "off"
+
+        # Get presence mode for holiday suppression
+        presence_entity = self.coordinator.entry.options.get("presence_entity")
+        presence_mode = None
+        if presence_entity:
+            presence_state = self.hass.states.get(presence_entity)
+            if presence_state:
+                presence_mode = presence_state.state
+
+        # Get all current sensor states for data gap detection
+        sensor_states = {
+            entity_id: self.hass.states.get(entity_id)
+            for entity_id in [
+                "sensor.ec_production_day",
+                "sensor.ec_consumption_day",
+                "sensor.ec_import_day",
+                "sensor.ec_export_day",
+            ]
+        }
+
+        # Get notification data from metrics store
+        data = self.coordinator.metrics_store.get_notification_data(
+            self.coordinator.data or {},
+            sensor_states
+        )
+
+        # Get active notifications
+        language = self.hass.config.language if self.hass.config.language in ["nl", "en"] else "en"
+        active_notifications = get_active_notifications(data, presence_mode, language)
+
+        # Return message if this notification is active
+        if self._rule_key in active_notifications:
+            return active_notifications[self._rule_key]
+
+        return "off"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, any]:
+        """Return extra attributes for filtering."""
+        return {
+            "tag": "Homie",
+            "category": "energy",
+            "severity": self._get_severity(),
+        }
+
+    def _get_severity(self) -> str:
+        """Get severity level for this notification."""
+        for rule in NOTIFICATION_RULES:
+            if rule.key == self._rule_key:
+                return rule.severity
+        return "info"
+
+
+# -----------------------------
 # Setup
 # -----------------------------
 async def async_setup_entry(
@@ -632,10 +725,18 @@ async def async_setup_entry(
         for p in PERIODS:
             if p.key == "poverall" and not d.include_overall_counter:
                 continue
+            # If period_keys is specified, only create those periods
+            if d.period_keys is not None and p.key not in d.period_keys:
+                continue
             period_entities.append(EnergyCoreSumPeriodSensor(coordinator, d, p, store))
 
     # Dedicated ratio period sensors for self sufficiency (hour/day/week/month/year/overall)
     for p in PERIODS:
         period_entities.append(EnergyCoreSelfSufficiencyPeriodSensor(coordinator, p, store))
 
-    async_add_entities(base_entities + period_entities)
+    # Notification sensors
+    notification_entities: List[SensorEntity] = []
+    for rule in NOTIFICATION_RULES:
+        notification_entities.append(EnergyCoreNotificationSensor(coordinator, rule.key, rule.name))
+
+    async_add_entities(base_entities + period_entities + notification_entities)

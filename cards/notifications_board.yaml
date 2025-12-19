@@ -1,0 +1,48 @@
+# Homie Energy Core - Notifications Board
+#
+# This card automatically shows all active Energy Core notifications.
+# Notifications are only shown when:
+# - input_boolean.ec_notifications_enabled is ON
+# - The notification condition is met
+# - The notification state is not 'off', 'unknown', or 'unavailable'
+#
+# Prerequisites:
+# 1. Install the auto-entities custom card from HACS
+# 2. Create input_boolean.ec_notifications_enabled helper:
+#    Settings → Devices & Services → Helpers → Create Helper → Toggle
+#    Name: "EC Notifications Enabled"
+#    Entity ID: input_boolean.ec_notifications_enabled
+#
+# Usage:
+# Copy this entire YAML into your dashboard
+
+type: custom:auto-entities
+card:
+  type: entities
+  title: Energy Notifications
+  show_header_toggle: false
+  state_color: true
+  show_state: true
+filter:
+  include:
+    # Include all Energy Core notification sensors
+    - entity_id: sensor.*warning*
+      attributes:
+        tag: Homie
+    - entity_id: sensor.*info*
+      attributes:
+        tag: Homie
+    - entity_id: sensor.*alarm*
+      attributes:
+        tag: Homie
+  exclude:
+    # Exclude inactive notifications
+    - state: "off"
+    - state: "unknown"
+    - state: "unavailable"
+    - attributes:
+        restored: true
+show_empty: false
+sort:
+  method: last_changed
+  reverse: true

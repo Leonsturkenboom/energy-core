@@ -1,0 +1,83 @@
+template:
+  - sensor:
+      - name: "EC Narrative Month"
+        unique_id: ec_narrative_month
+        icon: mdi:text-long
+        state: >
+          {% set period = "This month" %}
+
+          {% set total = states('sensor.ec_net_energy_use_month') | float(default=none) %}
+          {% set self_cons = states('sensor.ec_self_consumed_energy_month') | float(default=0) %}
+          {% set self_store = states('sensor.ec_self_stored_energy_month') | float(default=0) %}
+          {% set import_res = states('sensor.ec_imported_residual_energy_month') | float(default=0) %}
+          {% set import_batt = states('sensor.ec_imported_battery_energy_month') | float(default=0) %}
+          {% set batt_used = states('sensor.ec_self_consumed_battery_energy_month') | float(default=0) %}
+          {% set batt_export = states('sensor.ec_exported_battery_energy_month') | float(default=0) %}
+          {% set export_res = states('sensor.ec_exported_residual_energy_month') | float(default=0) %}
+          {% set ss = states('sensor.ec_self_sufficiency_month') | float(default=none) %}
+          {% set emissions = states('sensor.ec_emissions_net_month') | float(default=none) %}
+
+          {% set own_total = self_cons + self_store + export_res %}
+          {% set grid_total = import_res + import_batt %}
+          {% set stored_total = self_store + import_batt %}
+          {% set export_total = export_res + batt_export %}
+
+          {% set sentences = [] %}
+
+          {# Sentence 1: Total use #}
+          {% if total is not none %}
+            {% set sentences = sentences + [ period ~ ", you used " ~ (total | round(1)) ~ " kWh of electricity." ] %}
+          {% else %}
+            {% set sentences = sentences + [ period ~ ", electricity use was recorded." ] %}
+          {% endif %}
+
+          {# Sentence 2: Main source and destination #}
+          {% if total and total > 0 %}
+            {% set own_share = (own_total / total * 100) | round(0) if own_total > 0 else 0 %}
+            {% set grid_share = (grid_total / total * 100) | round(0) if grid_total > 0 else 0 %}
+
+            {% if own_share >= grid_share and own_share >= 10 %}
+              {% if self_cons >= self_store and self_cons >= export_res %}
+                {% set sentences = sentences + [ "Most of this energy (" ~ own_share ~ "%) came from your own production and was used directly." ] %}
+              {% elif self_store >= export_res %}
+                {% set sentences = sentences + [ "Most of this energy (" ~ own_share ~ "%) came from your own production and was stored." ] %}
+              {% else %}
+                {% set sentences = sentences + [ "Most of this energy (" ~ own_share ~ "%) came from your own production and was exported." ] %}
+              {% endif %}
+            {% elif grid_share >= 10 %}
+              {% set sentences = sentences + [ "Most of this energy (" ~ grid_share ~ "%) was imported from the grid." ] %}
+            {% endif %}
+          {% endif %}
+
+          {# Sentence 3: Battery storage outcome #}
+          {% if stored_total > 0 %}
+            {% if batt_used > 0 and batt_export > 0 %}
+              {% set sentences = sentences + [ "Your battery stored " ~ (stored_total | round(0)) ~ " kWh, of which " ~ (batt_used | round(0)) ~ " kWh was later used and " ~ (batt_export | round(0)) ~ " kWh exported." ] %}
+            {% elif batt_used > 0 %}
+              {% set sentences = sentences + [ "Your battery stored " ~ (stored_total | round(0)) ~ " kWh, of which " ~ (batt_used | round(0)) ~ " kWh was later used." ] %}
+            {% elif batt_export > 0 %}
+              {% set sentences = sentences + [ "Your battery stored " ~ (stored_total | round(0)) ~ " kWh, of which " ~ (batt_export | round(0)) ~ " kWh was later exported." ] %}
+            {% endif %}
+          {% endif %}
+
+          {# Sentence 4: Self-sufficiency or export + emissions #}
+          {% set line = none %}
+          {% if ss is not none and ss >= 0.7 %}
+            {% set line = "Energy self-sufficiency was high at " ~ ((ss * 100) | round(0)) ~ "%." %}
+          {% elif export_total > 0 and own_total > 0 %}
+            {% set line = ((export_total / own_total * 100) | round(0)) ~ "% of the produced electricity was exported to the grid." %}
+          {% endif %}
+
+          {% if line and emissions is not none %}
+            {% if emissions > 0 %}
+              {% set line = line ~ " Net emissions totalled " ~ (emissions | round(1)) ~ " kg CO₂-eq." %}
+            {% else %}
+              {% set line = line ~ " Emissions were reduced by " ~ ((emissions | abs) | round(1)) ~ " kg CO₂-eq." %}
+            {% endif %}
+          {% endif %}
+
+          {% if line %}
+            {% set sentences = sentences + [ line ] %}
+          {% endif %}
+
+          {{ sentences | join(" ") }}

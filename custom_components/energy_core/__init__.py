@@ -14,6 +14,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = EnergyCoreCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
+    # Initialize notification metrics store
+    await coordinator.async_setup_metrics_store()
+
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 

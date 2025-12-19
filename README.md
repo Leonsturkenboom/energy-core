@@ -34,7 +34,7 @@ This approach:
 
 ### Core energy deltas (per interval)
 
-These sensors represent **energy during the last calculation interval**  
+These sensors represent **energy during the last calculation interval**
 (**kWh per interval**, not cumulative totals):
 
 - **EC Imported Energy**
@@ -42,9 +42,12 @@ These sensors represent **energy during the last calculation interval**
 - **EC Produced Energy**
 - **EC Battery Charge Energy**
 - **EC Battery Discharge Energy**
+- **EC Net Battery Flow** (positive = discharging, negative = charging)
 
-> These sensors reset every interval by design.  
+> These sensors reset every interval by design.
 > They are intended as building blocks for period counters and dashboards.
+>
+> **Note**: Net Battery Flow can be negative (charging) or positive (discharging), making it ideal for distribution graphs. Period counters are only available for 15min, hour, and day periods.
 
 ---
 
@@ -102,13 +105,20 @@ Negative values for *Net* emissions indicate avoided emissions.
 
 For **every EC energy and emissions sensor**, Energy Core automatically generates:
 
-- 15 minutes  
-- Hour  
-- Day  
-- Week  
-- Month  
-- Year  
-- **Overall (lifetime)**  
+- 15 minutes
+- Hour
+- Day
+- Week
+- Month
+- Year
+- **Overall (lifetime)**
+
+**Exception**: **EC Net Battery Flow** only generates period counters for:
+- 15 minutes
+- Hour
+- Day
+
+(Week/month/year/overall counters for net flow are not meaningful since positive and negative values would cancel out)
 
 These counters:
 - **sum interval-based delta values**
@@ -175,6 +185,34 @@ All graphs are configured to **sum interval values**, not average them.
 
 Cards can be found in: /cards
 
+---
+
+## Notifications
+
+Energy Core includes smart notification sensors that monitor your energy patterns and alert you to:
+- **Warnings**: High consumption, data gaps, rising baseload
+- **Awards**: Self-sufficiency records, low emissions, low consumption
+- **Tips**: Reduce export, weekly improvement goals
+
+### Setup
+
+1. **Create notification toggle** (via UI or YAML):
+   ```yaml
+   input_boolean:
+     ec_notifications_enabled:
+       name: EC Notifications Enabled
+       initial: on
+   ```
+
+2. **Add notification board** to your dashboard:
+   - Install `auto-entities` from HACS
+   - Copy `/cards/notifications_board.yaml` to your dashboard
+
+All notifications:
+- Tagged with `tag: "Homie"` for easy filtering
+- Hidden when `input_boolean.ec_notifications_enabled` is OFF
+- Respect holiday mode (awards/tips only)
+- Support Dutch + English
 
 ---
 
@@ -199,6 +237,29 @@ Cards can be found in: /cards
 ---
 
 ## Version history
+
+### 0.4.1
+- **Added EC Net Battery Flow sensor**: Combined battery flow sensor that can be positive (discharging) or negative (charging)
+  - Perfect for distribution graphs showing battery behavior
+  - Period counters available for 15min, hour, and day only
+  - Calculation: discharge - charge (positive = discharging to consumption)
+- Added `period_keys` field to ECDescription for selective period counter creation
+- Improves battery visualization in energy distribution dashboards
+
+### 0.4.0
+- **Added Notification System**: 11 intelligent notification types for energy monitoring
+  - Warnings: Data gaps, consumption spikes (2x/4x daily avg), high night consumption, rising baseload
+  - Awards: Records in self-sufficiency, CO2 emissions, and energy use
+  - Tips: Reduce export suggestions, weekly improvement goals
+- **Added NotificationMetricsStore**: Lightweight 90-day historical data tracking
+  - Automatic daily snapshots at midnight
+  - Rolling averages (7d, 30d, 90d) for trend detection
+  - Min/max tracking for record comparison
+- **Holiday Mode Suppression**: Info/award notifications auto-suppressed during holidays
+- **Multi-language Support**: Notifications in Dutch and English
+- **Notification Toggle**: Respects `input_boolean.ec_notifications_enabled`
+- Added notifications board card with auto-entities filtering
+- All notification sensors tagged with "Homie" for easy dashboard integration
 
 ### 0.3.3
 - Hardened interval-based delta engine against sensor glitches

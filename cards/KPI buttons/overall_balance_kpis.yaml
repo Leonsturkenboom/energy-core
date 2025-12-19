@@ -1,0 +1,53 @@
+type: grid
+columns: 5
+square: false
+cards:
+  - type: custom:button-card
+    name: Net use
+    icon: mdi:chart-sankey
+    show_state: true
+    state_display: |
+      [[[
+        const v = parseFloat(states['sensor.ec_net_energy_use_overall']?.state ?? 0);
+        return `${v.toFixed(1)} kWh`;
+      ]]]
+
+  - type: custom:button-card
+    name: Imported
+    icon: mdi:transmission-tower-import
+    show_state: true
+    state_display: |
+      [[[
+        const v = parseFloat(states['sensor.ec_imported_energy_overall']?.state ?? 0);
+        return `${v.toFixed(1)} kWh`;
+      ]]]
+
+  - type: custom:button-card
+    name: Exported
+    icon: mdi:transmission-tower-export
+    show_state: true
+    state_display: |
+      [[[
+        const v = parseFloat(states['sensor.ec_exported_energy_overall']?.state ?? 0);
+        return `${v.toFixed(1)} kWh`;
+      ]]]
+
+  - type: custom:button-card
+    name: Self-reliant
+    icon: mdi:percent
+    show_state: true
+    state_display: |
+      [[[
+        const v = parseFloat(states['sensor.ec_self_sufficiency_overall']?.state ?? 0);
+        return `${v.toFixed(0)} %`;
+      ]]]
+
+  - type: custom:button-card
+    name: Emissions
+    icon: mdi:cloud
+    show_state: true
+    state_display: |
+      [[[
+        const v = parseFloat(states['sensor.ec_emissions_net_overall']?.state ?? 0);
+        return `${v.toFixed(2)} kg`;
+      ]]]

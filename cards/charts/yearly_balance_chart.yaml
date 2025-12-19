@@ -1,0 +1,67 @@
+type: custom:apexcharts-card
+graph_span: 1y
+span:
+  end: month
+header:
+  title: Yearly Balance (kWh)
+  show: true
+apex_config:
+  chart:
+    stacked: true
+    stackType: normal
+    animations:
+      enabled: false
+series:
+  - entity: sensor.ec_produced_energy_month
+    name: Production
+    color: rgba(233, 188, 5, 1)
+    type: column
+    stack_group: energy
+    group_by: { func: max, duration: 30d, fill: zero }
+    show: { in_legend: true, legend_value: false, in_chart: true }
+
+  - entity: sensor.ec_imported_residual_energy_month
+    name: Imported
+    color: rgba(0, 128, 255, 1)
+    type: column
+    stack_group: energy
+    group_by: { func: max, duration: 30d, fill: zero }
+    show: { in_legend: true, legend_value: false, in_chart: true }
+
+  - entity: sensor.ec_exported_residual_energy_month
+    name: Returned
+    color: rgba(127, 17, 224, 1)
+    type: column
+    stack_group: energy
+    transform: |
+      if (x === null || x === undefined || isNaN(x)) return null;
+      return x * -1;
+    group_by: { func: max, duration: 30d, fill: zero }
+    show: { in_legend: true, legend_value: false, in_chart: true }
+
+  - entity: sensor.ec_exported_battery_energy_month
+    name: Battery
+    color: rgba(52, 168, 83, 1)
+    type: column
+    stack_group: energy
+    transform: |
+      if (x === null || x === undefined || isNaN(x)) return null;
+      return x * -1;
+    group_by: { func: max, duration: 30d, fill: zero }
+    show: { in_legend: true, legend_value: false, in_chart: true }
+
+  - entity: sensor.ec_self_stored_energy_month
+    name: Battery (Production)
+    color: rgba(52, 168, 83, 1)
+    type: column
+    stack_group: energy
+    group_by: { func: max, duration: 30d, fill: zero }
+    show: { in_legend: false }
+
+  - entity: sensor.ec_imported_battery_energy_month
+    name: Battery (Imported)
+    color: rgba(52, 168, 83, 1)
+    type: column
+    stack_group: energy
+    group_by: { func: max, duration: 30d, fill: zero }
+    show: { in_legend: false }

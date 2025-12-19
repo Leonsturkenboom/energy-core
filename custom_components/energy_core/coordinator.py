@@ -8,6 +8,7 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -21,6 +22,7 @@ from .const import (
     CONF_DELTA_INTERVAL_SECONDS,
     DEFAULT_DELTA_INTERVAL_SECONDS,
 )
+from .notification_metrics import NotificationMetricsStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,6 +70,11 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Derived spike guard: max kWh allowed per interval
         self._max_kwh_per_interval = round(MAX_KW_ASSUMED * (self.interval_s / 3600.0), 6)
+
+        # Notification metrics store
+        self.metrics_store = NotificationMetricsStore(hass)
+        self._daily_snapshot_listener = None
+        self._last_snapshot_date = None
 
     # -----------------------------
     # Safe parsing helpers
@@ -249,9 +256,89 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._prev_totals = totals
         self._seq += 1
 
-        return {
+        result = {
             "totals": totals,
             "deltas": deltas,
             "seq": self._seq,
             "updated_at": dt_util.utcnow().isoformat(),
+            "is_weekly_trigger": dt_util.now().weekday() == 0,  # Monday = 0
+        }
+
+        # Check if we need to create a daily snapshot
+        await self._maybe_create_daily_snapshot()
+
+        return result
+
+    # -----------------------------
+    # Notification metrics support
+    # -----------------------------
+    async def async_setup_metrics_store(self) -> None:
+        """Initialize the metrics store and set up daily snapshot tracking."""
+        await self.metrics_store.async_load()
+
+        # Set up listener for midnight snapshot
+        self._daily_snapshot_listener = async_track_time_change(
+            self.hass,
+            self._handle_midnight_snapshot,
+            hour=0,
+            minute=0,
+            second=0,
+        )
+        _LOGGER.info("Notification metrics store initialized")
+
+    async def _handle_midnight_snapshot(self, _now) -> None:
+        """Handle midnight trigger to create daily snapshot."""
+        _LOGGER.debug("Midnight snapshot trigger")
+        await self._maybe_create_daily_snapshot()
+
+    async def _maybe_create_daily_snapshot(self) -> None:
+        """Create daily snapshot if we haven't already today."""
+        today = dt_util.now().date().isoformat()
+
+        if self._last_snapshot_date == today:
+            return  # Already created today's snapshot
+
+        # Get day period sensors to capture today's values
+        snapshot = await self._build_daily_snapshot()
+        if snapshot:
+            await self.metrics_store.add_daily_snapshot(snapshot)
+            self._last_snapshot_date = today
+            _LOGGER.info(f"Created daily snapshot for {today}")
+
+    async def _build_daily_snapshot(self) -> dict[str, Any] | None:
+        """Build snapshot from current day period sensors."""
+        today = dt_util.now().date().isoformat()
+
+        # Read day period sensors
+        net_use = self._read_float_safe("sensor.ec_net_energy_use_day")
+        production = self._read_float_safe("sensor.ec_production_day")
+        export = self._read_float_safe("sensor.ec_export_day")
+        emissions = self._read_float_safe("sensor.ec_emissions_day")
+
+        # Self-sufficiency from day sensor
+        ss_state = self.hass.states.get("sensor.ec_self_sufficiency_day")
+        self_sufficiency = 0.0
+        if ss_state and ss_state.state not in ("unknown", "unavailable"):
+            try:
+                self_sufficiency = float(ss_state.state) / 100.0  # Convert from % to ratio
+            except (ValueError, TypeError):
+                pass
+
+        # Night consumption (00:00-07:00) - we'll need to track this separately
+        # For now, use a rough estimate: 7/24 * daily consumption
+        night_use = net_use * (7 / 24)
+
+        # Only create snapshot if we have meaningful data
+        if net_use == 0.0 and production == 0.0:
+            _LOGGER.debug("Skipping snapshot - no meaningful data")
+            return None
+
+        return {
+            "date": today,
+            "net_use": round(net_use, 3),
+            "production": round(production, 3),
+            "export": round(export, 3),
+            "night_use": round(night_use, 3),
+            "emissions": round(emissions, 3),
+            "self_sufficiency": round(self_sufficiency, 3),
         }

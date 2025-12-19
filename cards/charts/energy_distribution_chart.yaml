@@ -1,0 +1,36 @@
+type: entities
+title: Energy distribution (total)
+show_header_toggle: false
+entities:
+  - entity: sensor.ec_imported_energy
+    name: Grid import
+  - entity: sensor.ec_exported_energy
+    name: Grid export
+  - entity: sensor.ec_produced_energy
+    name: Produced
+
+  - type: section
+    label: Battery flows
+
+  - entity: sensor.ec_battery_charge_energy
+    name: Battery charge
+  - entity: sensor.ec_battery_discharge_energy
+    name: Battery discharge
+  - entity: sensor.ec_self_stored_energy
+    name: PV → battery
+  - entity: sensor.ec_imported_battery_energy
+    name: Grid → battery
+  - entity: sensor.ec_self_battery_energy
+    name: Battery → home
+  - entity: sensor.ec_exported_battery_energy
+    name: Battery → grid
+
+  - type: section
+    label: Net & KPIs
+
+  - entity: sensor.ec_net_energy_use
+    name: Net on-site use
+  - entity: sensor.ec_net_import_energy
+    name: Net grid import
+  - entity: sensor.ec_self_sufficiency
+    name: Self sufficiency
