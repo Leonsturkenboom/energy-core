@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Optional
 from datetime import timedelta
 import logging
+import asyncio
 
 from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.config_entries import ConfigEntry
@@ -77,6 +78,10 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # State change listeners
         self._state_listeners = []
+
+        # Debouncing for energy updates (10 seconds)
+        self._update_debounce_task: Optional[asyncio.Task] = None
+        self._debounce_delay = 10  # seconds
 
     # -----------------------------
     # Safe parsing helpers
@@ -179,7 +184,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         @callback
         def _handle_state_change(event: Event) -> None:
-            """Handle state change events from input sensors."""
+            """Handle state change events from input sensors with debouncing."""
             entity_id = event.data.get("entity_id")
             new_state = event.data.get("new_state")
             old_state = event.data.get("old_state")
@@ -187,8 +192,20 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if new_state is None or old_state is None:
                 return
 
-            # Trigger delta calculation when any input sensor changes
-            self.hass.async_create_task(self._async_update_data())
+            # Cancel existing debounce task if any
+            if self._update_debounce_task and not self._update_debounce_task.done():
+                self._update_debounce_task.cancel()
+
+            # Schedule new update after debounce delay
+            async def _debounced_update():
+                try:
+                    await asyncio.sleep(self._debounce_delay)
+                    await self._async_update_data()
+                except asyncio.CancelledError:
+                    # Task was cancelled, another update is coming
+                    pass
+
+            self._update_debounce_task = self.hass.async_create_task(_debounced_update())
 
         # Subscribe to state changes
         remove_listener = self.hass.bus.async_listen(
@@ -202,6 +219,14 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def async_stop_listeners(self) -> None:
         """Stop all state change listeners."""
+        # Cancel pending debounce task
+        if self._update_debounce_task and not self._update_debounce_task.done():
+            self._update_debounce_task.cancel()
+            try:
+                await self._update_debounce_task
+            except asyncio.CancelledError:
+                pass
+
         for remove in self._state_listeners:
             remove()
         self._state_listeners.clear()
