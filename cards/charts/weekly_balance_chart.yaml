@@ -30,7 +30,7 @@ series:
       in_legend: true
       legend_value: false
       in_chart: true
-  - entity: sensor.ec_produced_energy_day
+  - entity: sensor.ec_self_consumed_energy_day
     name: Production
     color: rgba(233, 188, 5, 1)
     type: column
