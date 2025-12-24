@@ -10,9 +10,5 @@ CONF_BATTERY_CHARGE_ENTITIES = "battery_charge_entities"      # D
 CONF_BATTERY_DISCHARGE_ENTITIES = "battery_discharge_entities" # E
 CONF_CO2_INTENSITY_ENTITY = "co2_intensity_entity"    # F
 CONF_PRESENCE_ENTITY = "presence_entity"              # optional
-CONF_DELTA_INTERVAL_SECONDS = "delta_interval_seconds"  # H
-DEFAULT_DELTA_INTERVAL_SECONDS = 300
-MIN_DELTA_INTERVAL_SECONDS = 60
-MAX_DELTA_INTERVAL_SECONDS = 3600
 
 DEFAULT_NAME = "Homie Energy Core"

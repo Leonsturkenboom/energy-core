@@ -10,7 +10,6 @@
           "produced_entities": "Welke sensor(en) meten totale energieproductie?",
           "battery_charge_entities": "Welke sensor(en) meten totale batterij-laadenergie?",
           "battery_discharge_entities": "Welke sensor(en) meten totale batterij-ontlaadenergie?",
-          "delta_interval_seconds": "Delta-berekeningsinterval (seconden)",
           "co2_intensity_entity": "Welke sensor geeft CO₂-intensiteit (g CO₂-eq/kWh)?",
           "presence_entity": "Optioneel: welke entiteit representeert aanwezigheid / bezetting?"
         }

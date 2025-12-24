@@ -5,11 +5,12 @@ from typing import Any, Optional
 from datetime import timedelta
 import logging
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, Event, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_track_time_change, async_track_state_change_event
 from homeassistant.util import dt as dt_util
+from homeassistant.const import EVENT_STATE_CHANGED
 
 from .const import (
     DOMAIN,
@@ -19,8 +20,6 @@ from .const import (
     CONF_BATTERY_CHARGE_ENTITIES,
     CONF_BATTERY_DISCHARGE_ENTITIES,
     CONF_CO2_INTENSITY_ENTITY,
-    CONF_DELTA_INTERVAL_SECONDS,
-    DEFAULT_DELTA_INTERVAL_SECONDS,
 )
 from .notification_metrics import NotificationMetricsStore
 
@@ -56,25 +55,28 @@ class EnergyDeltas:
 class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.entry = entry
-        self.interval_s = int(entry.data.get(CONF_DELTA_INTERVAL_SECONDS, DEFAULT_DELTA_INTERVAL_SECONDS))
 
         super().__init__(
             hass,
             logger=_LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=self.interval_s),
+            update_interval=None,  # Event-driven, no polling
         )
 
         self._prev_totals: Optional[EnergyTotals] = None
         self._seq: int = 0
 
-        # Derived spike guard: max kWh allowed per interval
-        self._max_kwh_per_interval = round(MAX_KW_ASSUMED * (self.interval_s / 3600.0), 6)
+        # Derived spike guard: max kWh allowed per state change
+        # Use a generous limit since we're now event-driven (not time-based)
+        self._max_kwh_per_change = round(MAX_KW_ASSUMED * 1.0, 6)  # Max 50 kWh per single update
 
         # Notification metrics store
         self.metrics_store = NotificationMetricsStore(hass)
         self._daily_snapshot_listener = None
         self._last_snapshot_date = None
+
+        # State change listeners
+        self._state_listeners = []
 
     # -----------------------------
     # Safe parsing helpers
@@ -148,10 +150,62 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if d < 0:
             return 0.0, "negative_delta"
 
-        if d > self._max_kwh_per_interval:
+        if d > self._max_kwh_per_change:
             return 0.0, "spike_detected"
 
         return d, None
+
+    # -----------------------------
+    # Event-driven state tracking
+    # -----------------------------
+    async def async_start_listeners(self) -> None:
+        """Start listening to state changes of input entities."""
+        data = self.entry.data
+
+        # Collect all input entities
+        all_entities = []
+        all_entities.extend(data.get(CONF_IMPORTED_ENTITIES, []))
+        all_entities.extend(data.get(CONF_EXPORTED_ENTITIES, []))
+        all_entities.extend(data.get(CONF_PRODUCED_ENTITIES, []))
+        all_entities.extend(data.get(CONF_BATTERY_CHARGE_ENTITIES, []))
+        all_entities.extend(data.get(CONF_BATTERY_DISCHARGE_ENTITIES, []))
+
+        if not all_entities:
+            _LOGGER.warning("No input entities configured for Energy Core")
+            return
+
+        # Track state changes for all input entities
+        _LOGGER.info(f"Starting event-driven tracking for {len(all_entities)} entities")
+
+        @callback
+        def _handle_state_change(event: Event) -> None:
+            """Handle state change events from input sensors."""
+            entity_id = event.data.get("entity_id")
+            new_state = event.data.get("new_state")
+            old_state = event.data.get("old_state")
+
+            if new_state is None or old_state is None:
+                return
+
+            # Trigger delta calculation when any input sensor changes
+            self.hass.async_create_task(self._async_update_data())
+
+        # Subscribe to state changes
+        remove_listener = self.hass.bus.async_listen(
+            EVENT_STATE_CHANGED,
+            _handle_state_change,
+            lambda event: event.data.get("entity_id") in all_entities
+        )
+        self._state_listeners.append(remove_listener)
+
+        _LOGGER.info("Event-driven delta calculation active")
+
+    async def async_stop_listeners(self) -> None:
+        """Stop all state change listeners."""
+        for remove in self._state_listeners:
+            remove()
+        self._state_listeners.clear()
+        _LOGGER.info("Stopped event-driven listeners")
 
     # -----------------------------
     # Coordinator update

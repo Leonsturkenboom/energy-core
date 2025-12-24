@@ -10,7 +10,6 @@
           "produced_entities": "Which sensor(s) measure total energy produced?",
           "battery_charge_entities": "Which sensor(s) measure total battery charge energy?",
           "battery_discharge_entities": "Which sensor(s) measure total battery discharge energy?",
-          "delta_interval_seconds": "Delta calculation interval (seconds)",
           "co2_intensity_entity": "Which sensor provides CO₂ intensity (g CO₂-eq/kWh)?",
           "presence_entity": "Optional: which entity represents presence / occupancy?"
         }

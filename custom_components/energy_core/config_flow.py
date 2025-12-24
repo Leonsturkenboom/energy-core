@@ -15,10 +15,6 @@ from .const import (
     CONF_BATTERY_DISCHARGE_ENTITIES,
     CONF_CO2_INTENSITY_ENTITY,
     CONF_PRESENCE_ENTITY,
-    CONF_DELTA_INTERVAL_SECONDS,
-    DEFAULT_DELTA_INTERVAL_SECONDS,
-    MIN_DELTA_INTERVAL_SECONDS,
-    MAX_DELTA_INTERVAL_SECONDS,
 )
 
 
@@ -112,11 +108,6 @@ class EnergyCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input[CONF_BATTERY_CHARGE_ENTITIES] = charge
             user_input[CONF_BATTERY_DISCHARGE_ENTITIES] = discharge
 
-            # Clamp interval
-            interval = int(user_input.get(CONF_DELTA_INTERVAL_SECONDS, DEFAULT_DELTA_INTERVAL_SECONDS))
-            interval = max(MIN_DELTA_INTERVAL_SECONDS, min(MAX_DELTA_INTERVAL_SECONDS, interval))
-            user_input[CONF_DELTA_INTERVAL_SECONDS] = interval
-
             # Validate energy lists independently (field-level errors)
             invalid_imported = self._validate_energy_list(imported)
             invalid_exported = self._validate_energy_list(exported)
@@ -166,20 +157,6 @@ class EnergyCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 vol.Optional(CONF_BATTERY_DISCHARGE_ENTITIES): selector.EntitySelector(
                     selector.EntitySelectorConfig(multiple=True, domain="sensor")
-                ),
-
-                # Delta interval (seconds)
-                vol.Optional(
-                    CONF_DELTA_INTERVAL_SECONDS,
-                    default=DEFAULT_DELTA_INTERVAL_SECONDS,
-                ): selector.NumberSelector(
-                    selector.NumberSelectorConfig(
-                        min=MIN_DELTA_INTERVAL_SECONDS,
-                        max=MAX_DELTA_INTERVAL_SECONDS,
-                        step=1,
-                        mode=selector.NumberSelectorMode.BOX,
-                        unit_of_measurement="s",
-                    )
                 ),
 
                 # CO2 intensity (single sensor)

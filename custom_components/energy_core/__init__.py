@@ -17,6 +17,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Initialize notification metrics store
     await coordinator.async_setup_metrics_store()
 
+    # Start event-driven state listeners
+    await coordinator.async_start_listeners()
+
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
@@ -27,6 +30,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
+        # Stop event listeners
+        coordinator = hass.data[DOMAIN].get(entry.entry_id)
+        if coordinator:
+            await coordinator.async_stop_listeners()
+
         domain_data = hass.data.get(DOMAIN, {})
         domain_data.pop(entry.entry_id, None)
         if not domain_data:
