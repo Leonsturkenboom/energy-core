@@ -13,8 +13,11 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = EnergyCoreCoordinator(hass, entry)
 
-    # Perform initial data fetch to establish baseline
-    await coordinator.async_refresh()
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    # Forward to platforms first so sensors are created
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Initialize notification metrics store
     await coordinator.async_setup_metrics_store()
@@ -22,10 +25,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Start event-driven state listeners
     await coordinator.async_start_listeners()
 
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    # Perform initial data fetch to establish baseline
+    # This will likely show "missing_input" initially, which is fine
+    # The event listeners will trigger proper updates when entities become available
+    await coordinator.async_refresh()
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 

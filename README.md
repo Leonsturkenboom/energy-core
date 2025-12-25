@@ -238,6 +238,13 @@ All notifications:
 
 ## Version history
 
+### 0.5.4
+- **Improved event listener and initialization**:
+  - Event listeners now trigger on initial state (not just changes) by allowing `old_state is None`
+  - Added detailed logging when input entities are unavailable (`missing_input` warnings)
+  - Reordered initialization: platforms load first, then listeners, then initial refresh
+  - Helps diagnose entity availability issues during startup
+
 ### 0.5.3
 - **Fixed initial data not loading**: Event-driven coordinator now performs initial refresh on startup
   - Changed from `async_config_entry_first_refresh()` to `async_refresh()`

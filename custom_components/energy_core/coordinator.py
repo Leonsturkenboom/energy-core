@@ -189,8 +189,11 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             new_state = event.data.get("new_state")
             old_state = event.data.get("old_state")
 
-            if new_state is None or old_state is None:
+            if new_state is None:
                 return
+
+            # Allow initial state events where old_state is None
+            # This handles the case where entities exist but haven't changed yet
 
             # Cancel existing debounce task if any
             if self._update_debounce_task and not self._update_debounce_task.done():
@@ -260,6 +263,19 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # If any required totals are missing/invalid, mark interval invalid and DO NOT touch prev_totals.
         # This avoids "prev_total = 0" spikes that poison day/month/year.
         if any(v is None for v in (cur_imported, cur_exported, cur_produced, cur_charge, cur_discharge)):
+            # Log which entities are unavailable for debugging
+            missing = []
+            if cur_imported is None:
+                missing.append(f"imported ({imported_entities})")
+            if cur_exported is None:
+                missing.append(f"exported ({exported_entities})")
+            if cur_produced is None:
+                missing.append(f"produced ({produced_entities})")
+            if cur_charge is None:
+                missing.append(f"charge ({charge_entities})")
+            if cur_discharge is None:
+                missing.append(f"discharge ({discharge_entities})")
+            _LOGGER.warning(f"Missing input entities: {', '.join(missing)}")
             deltas.valid = False
             deltas.reason = "missing_input"
 
