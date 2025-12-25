@@ -61,7 +61,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             logger=_LOGGER,
             name=DOMAIN,
-            update_interval=None,  # Event-driven, no polling
+            update_interval=timedelta(seconds=300),  # Hybrid: polling fallback every 5 min + event-driven
         )
 
         self._prev_totals: Optional[EnergyTotals] = None
@@ -227,19 +227,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._state_listeners.append(remove_listener)
 
-        # Schedule a delayed refresh as fallback for entities that exist but haven't changed
-        # This ensures we catch entities that were already available at startup
-        async def _delayed_fallback_refresh():
-            await asyncio.sleep(15)  # Wait 15 seconds
-            deltas = self.data.get("deltas")
-            if deltas and hasattr(deltas, "reason") and deltas.reason in ("not_initialized", "missing_input"):
-                _LOGGER.info("Performing delayed fallback refresh for unavailable entities")
-                # Use async_refresh() to update self.data AND notify sensors
-                await self.async_refresh()
-
-        self.hass.async_create_task(_delayed_fallback_refresh())
-
-        _LOGGER.info("Event-driven delta calculation active")
+        _LOGGER.info("Hybrid mode active: event-driven + 5-minute polling fallback")
 
     async def async_stop_listeners(self) -> None:
         """Stop all state change listeners."""

@@ -238,6 +238,14 @@ All notifications:
 
 ## Version history
 
+### 0.5.9
+- **Hybrid polling + event-driven mode**: Ensures sensors update even when input entities don't change
+  - Added 5-minute polling interval as fallback alongside event-driven updates
+  - Fixes issue where sensors stayed at 0 when input entities had no state changes
+  - Event-driven updates still work for immediate response to state changes
+  - Removed 15-second delayed fallback (no longer needed with polling)
+  - First successful update after baseline will now happen within 5 minutes maximum
+
 ### 0.5.8
 - **Critical fix: Sensors now receive data updates**: Use async_refresh() instead of _async_update_data()
   - Event-driven updates now properly notify sensor entities via DataUpdateCoordinator
