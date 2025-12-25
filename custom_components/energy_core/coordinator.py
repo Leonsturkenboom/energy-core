@@ -226,6 +226,16 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._state_listeners.append(remove_listener)
 
+        # Schedule a delayed refresh as fallback for entities that exist but haven't changed
+        # This ensures we catch entities that were already available at startup
+        async def _delayed_fallback_refresh():
+            await asyncio.sleep(15)  # Wait 15 seconds
+            if self.data.get("deltas", {}).get("reason") in ("not_initialized", "missing_input"):
+                _LOGGER.info("Performing delayed fallback refresh for unavailable entities")
+                await self._async_update_data()
+
+        self.hass.async_create_task(_delayed_fallback_refresh())
+
         _LOGGER.info("Event-driven delta calculation active")
 
     async def async_stop_listeners(self) -> None:

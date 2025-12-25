@@ -1,7 +1,7 @@
 {
   "domain": "energy_core",
   "name": "Homie Energy Core",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "config_flow": true,
   "documentation": "https://github.com/Leonsturkenboom/energy-core",
   "issue_tracker": "https://github.com/Leonsturkenboom/energy-core/issues",

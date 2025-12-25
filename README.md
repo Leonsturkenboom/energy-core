@@ -238,6 +238,15 @@ All notifications:
 
 ## Version history
 
+### 0.5.6
+- **Added delayed fallback refresh**: Ensures data loads even if input entities don't change at startup
+  - 15-second delayed refresh catches entities that were available but didn't trigger state change events
+  - Fixes issue where sensors stayed at 0 when input entities already had valid states
+- **Fixed state_class warnings**: Period sensors now use correct state_class for cumulative energy
+  - Energy period sensors (day/week/month/year/overall) now use `TOTAL_INCREASING` instead of `MEASUREMENT`
+  - Emissions and self-sufficiency period sensors still use `MEASUREMENT`
+  - Eliminates Home Assistant warnings about incorrect state_class configuration
+
 ### 0.5.5
 - **Fixed coordinator.data None error**: Initialize coordinator.data in __init__ to prevent AttributeError
   - Sensors no longer crash when trying to access coordinator.data during setup

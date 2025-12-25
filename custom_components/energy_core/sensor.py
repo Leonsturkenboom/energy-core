@@ -455,7 +455,11 @@ class EnergyCoreSumPeriodSensor(CoordinatorEntity[EnergyCoreCoordinator], Sensor
 
         self._attr_device_class = base.device_class
         self._attr_native_unit_of_measurement = base.native_unit_of_measurement
-        self._attr_state_class = SensorStateClass.MEASUREMENT
+        # Period sensors are cumulative totals - use TOTAL_INCREASING for energy
+        if base.device_class == SensorDeviceClass.ENERGY:
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        else:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
 
         self._period_start: Optional[datetime] = None
         self._sum: float = 0.0
