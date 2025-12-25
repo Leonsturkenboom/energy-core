@@ -12,7 +12,9 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = EnergyCoreCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
+
+    # Perform initial data fetch to establish baseline
+    await coordinator.async_refresh()
 
     # Initialize notification metrics store
     await coordinator.async_setup_metrics_store()

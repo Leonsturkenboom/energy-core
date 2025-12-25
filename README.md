@@ -238,6 +238,12 @@ All notifications:
 
 ## Version history
 
+### 0.5.3
+- **Fixed initial data not loading**: Event-driven coordinator now performs initial refresh on startup
+  - Changed from `async_config_entry_first_refresh()` to `async_refresh()`
+  - Establishes baseline immediately instead of waiting for first state change
+  - Fixes issue where all sensors showed 0 until entities updated
+
 ### 0.5.2
 - **Fixed event listener compatibility**: Replaced deprecated `async_listen` with lambda filter
   - Now uses `async_track_state_change_event` for HA 2024+ compatibility
