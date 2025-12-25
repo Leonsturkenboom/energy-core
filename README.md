@@ -238,6 +238,12 @@ All notifications:
 
 ## Version history
 
+### 0.5.7
+- **Fixed AttributeError in delayed fallback refresh**: Correctly access dataclass attributes
+  - Fixed "AttributeError: 'EnergyDeltas' object has no attribute 'get'" error
+  - Delayed fallback now properly checks deltas.reason attribute instead of using .get()
+  - Ensures fallback refresh executes correctly after 15 seconds
+
 ### 0.5.6
 - **Added delayed fallback refresh**: Ensures data loads even if input entities don't change at startup
   - 15-second delayed refresh catches entities that were available but didn't trigger state change events

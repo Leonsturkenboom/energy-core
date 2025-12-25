@@ -230,7 +230,8 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # This ensures we catch entities that were already available at startup
         async def _delayed_fallback_refresh():
             await asyncio.sleep(15)  # Wait 15 seconds
-            if self.data.get("deltas", {}).get("reason") in ("not_initialized", "missing_input"):
+            deltas = self.data.get("deltas")
+            if deltas and hasattr(deltas, "reason") and deltas.reason in ("not_initialized", "missing_input"):
                 _LOGGER.info("Performing delayed fallback refresh for unavailable entities")
                 await self._async_update_data()
 
