@@ -238,6 +238,31 @@ All notifications:
 
 ## Version history
 
+### 0.5.2
+- **Fixed event listener compatibility**: Replaced deprecated `async_listen` with lambda filter
+  - Now uses `async_track_state_change_event` for HA 2024+ compatibility
+  - Prevents "Event filter is not a callback" error on startup
+  - Follows Home Assistant best practices for state change tracking
+
+### 0.5.1
+- **BREAKING CHANGE**: Switched from polling to event-driven delta calculation
+  - Delta calculations now triggered by sensor state changes instead of fixed intervals
+  - Eliminates timestamp lag between energy measurement and delta attribution
+  - Fixes issue where battery charge events were attributed to wrong time periods
+  - Removed `delta_interval_seconds` configuration option (no longer needed)
+  - Users must reconfigure integration after upgrade
+- **Added 10-second debouncing**: Prevents excessive processing from rapid state changes
+  - System waits 10 seconds after last state change before calculating deltas
+  - Improves performance and reduces unnecessary computation
+  - Automatic cleanup of debounce tasks on shutdown
+- **Fixed dashboard double counting**: Updated balance charts to prevent showing production twice
+  - Charts now use `self_consumed_energy` instead of `produced_energy`
+  - Correctly displays: self-consumed (PV→home), self-stored (PV→battery), imported (grid→home)
+  - Eliminates overlap in stacked energy balance charts
+- **Renamed sensors**: `net_energy_use` → `net_energy_use_on_site` for clarity
+  - Applies to all period sensors (daily, weekly, monthly, yearly, overall)
+  - Updated all dashboard cards and charts
+
 ### 0.4.1
 - **Added EC Net Battery Flow sensor**: Combined battery flow sensor that can be positive (discharging) or negative (charging)
   - Perfect for distribution graphs showing battery behavior

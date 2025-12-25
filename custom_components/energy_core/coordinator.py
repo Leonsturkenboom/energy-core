@@ -207,11 +207,11 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
             self._update_debounce_task = self.hass.async_create_task(_debounced_update())
 
-        # Subscribe to state changes
-        remove_listener = self.hass.bus.async_listen(
-            EVENT_STATE_CHANGED,
-            _handle_state_change,
-            lambda event: event.data.get("entity_id") in all_entities
+        # Subscribe to state changes using async_track_state_change_event
+        remove_listener = async_track_state_change_event(
+            self.hass,
+            list(all_entities),
+            _handle_state_change
         )
         self._state_listeners.append(remove_listener)
 
