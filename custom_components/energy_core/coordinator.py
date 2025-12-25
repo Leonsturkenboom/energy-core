@@ -79,9 +79,9 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # State change listeners
         self._state_listeners = []
 
-        # Debouncing for energy updates (10 seconds)
+        # Debouncing for energy updates (1 second - must be shorter than P1 meter update interval)
         self._update_debounce_task: Optional[asyncio.Task] = None
-        self._debounce_delay = 10  # seconds
+        self._debounce_delay = 1  # seconds
 
         # Initialize data to prevent None errors during sensor setup
         self.data = {

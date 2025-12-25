@@ -238,6 +238,13 @@ All notifications:
 
 ## Version history
 
+### 0.5.11
+- **Fixed event-driven debounce never completing**: Reduced debounce delay from 10s to 1s
+  - P1 meters typically update every 5 seconds, but debounce was 10 seconds
+  - Every new update cancelled the previous debounce task, so 10s window never completed
+  - With 1s debounce, updates now complete between P1 meter readings
+  - Event-driven updates should now work alongside 5-minute polling fallback
+
 ### 0.5.10
 - **Added debug logging for event-driven updates**: Diagnose why event listeners may not trigger
   - Logs which entities are being tracked for state changes
