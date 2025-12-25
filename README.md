@@ -238,6 +238,13 @@ All notifications:
 
 ## Version history
 
+### 0.5.5
+- **Fixed coordinator.data None error**: Initialize coordinator.data in __init__ to prevent AttributeError
+  - Sensors no longer crash when trying to access coordinator.data during setup
+  - Coordinator now has safe default data structure before first refresh
+  - Fixes "AttributeError: 'NoneType' object has no attribute 'get'" errors
+  - Event listeners can now properly update sensors once input entities become available
+
 ### 0.5.4
 - **Improved event listener and initialization**:
   - Event listeners now trigger on initial state (not just changes) by allowing `old_state is None`

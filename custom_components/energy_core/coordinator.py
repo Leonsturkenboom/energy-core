@@ -83,6 +83,14 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._update_debounce_task: Optional[asyncio.Task] = None
         self._debounce_delay = 10  # seconds
 
+        # Initialize data to prevent None errors during sensor setup
+        self.data = {
+            "totals": EnergyTotals(),
+            "deltas": EnergyDeltas(valid=False, reason="not_initialized"),
+            "seq": 0,
+            "updated_at": dt_util.utcnow().isoformat(),
+        }
+
     # -----------------------------
     # Safe parsing helpers
     # -----------------------------
