@@ -67,12 +67,12 @@ class ECDescription(SensorEntityDescription):
 # Base + derived DELTA sensors (per-interval)
 # -----------------------------
 DESCRIPTIONS: list[ECDescription] = [
-    # Base deltas (kWh per interval)
+    # Base deltas (kWh per interval) - No device_class to avoid state_class conflict
     ECDescription(
         key="ec_imported_energy",
         name="EC Imported Energy",
         icon="mdi:transmission-tower-import",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _deltas(c).dA_imported_kwh if _interval_valid(c) else 0.0,
@@ -82,7 +82,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_exported_energy",
         name="EC Exported Energy",
         icon="mdi:transmission-tower-export",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _deltas(c).dB_exported_kwh if _interval_valid(c) else 0.0,
@@ -92,7 +92,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_produced_energy",
         name="EC Produced Energy",
         icon="mdi:solar-power",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _deltas(c).dC_produced_kwh if _interval_valid(c) else 0.0,
@@ -102,7 +102,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_battery_charge_energy",
         name="EC Battery Charge Energy",
         icon="mdi:battery-arrow-up",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _deltas(c).dD_charge_kwh if _interval_valid(c) else 0.0,
@@ -112,7 +112,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_battery_discharge_energy",
         name="EC Battery Discharge Energy",
         icon="mdi:battery-arrow-down",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _deltas(c).dE_discharge_kwh if _interval_valid(c) else 0.0,
@@ -122,7 +122,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_net_battery_flow",
         name="EC Net Battery Flow",
         icon="mdi:battery-sync",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: (
@@ -134,12 +134,12 @@ DESCRIPTIONS: list[ECDescription] = [
         period_keys=["p15m", "phour", "pday"],  # Only short periods, not week/month/year
     ),
 
-    # Derived splits (kWh per interval)
+    # Derived splits (kWh per interval) - No device_class to avoid state_class conflict
     ECDescription(
         key="ec_self_consumed_energy",
         name="EC Self Consumed Energy",
         icon="mdi:home-lightning-bolt",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _clamp_min0(
@@ -151,7 +151,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_self_stored_energy",
         name="EC Self Stored Energy",
         icon="mdi:battery-charging-70",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: min(
@@ -164,7 +164,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_imported_battery_energy",
         name="EC Imported Battery Energy",
         icon="mdi:battery-charging",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _clamp_min0(
@@ -176,7 +176,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_exported_battery_energy",
         name="EC Exported Battery Energy",
         icon="mdi:battery-charging-wireless",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: min(_deltas(c).dE_discharge_kwh, _deltas(c).dB_exported_kwh) if _interval_valid(c) else 0.0,
@@ -186,7 +186,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_self_consumed_battery_energy",
         name="EC Self Consumed Battery Energy",
         icon="mdi:battery",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _clamp_min0(_deltas(c).dE_discharge_kwh - _deltas(c).dB_exported_kwh) if _interval_valid(c) else 0.0,
@@ -196,7 +196,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_imported_residual_energy",
         name="EC Imported Residual Energy",
         icon="mdi:transmission-tower-import",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _clamp_min0(
@@ -212,19 +212,19 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_exported_residual_energy",
         name="EC Exported Residual Energy",
         icon="mdi:transmission-tower-export",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: _clamp_min0(_deltas(c).dB_exported_kwh - _deltas(c).dE_discharge_kwh) if _interval_valid(c) else 0.0,
         allow_negative=False,
     ),
 
-    # Net KPIs (signed is allowed)
+    # Net KPIs (signed is allowed) - No device_class to avoid state_class conflict
     ECDescription(
         key="ec_net_energy_use",
         name="EC Net Energy Use (On-site)",
         icon="mdi:chart-sankey",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: (
@@ -236,7 +236,7 @@ DESCRIPTIONS: list[ECDescription] = [
         key="ec_net_energy_imported_grid",
         name="EC Net Energy Imported (Grid)",
         icon="mdi:swap-horizontal",
-        device_class=SensorDeviceClass.ENERGY,
+        device_class=None,  # Interval energy, not cumulative
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement="kWh",
         value_fn=lambda c: (_deltas(c).dA_imported_kwh - _deltas(c).dB_exported_kwh) if _interval_valid(c) else 0.0,

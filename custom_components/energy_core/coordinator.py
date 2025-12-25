@@ -211,7 +211,8 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             async def _debounced_update():
                 try:
                     await asyncio.sleep(self._debounce_delay)
-                    await self._async_update_data()
+                    # Use async_refresh() to update self.data AND notify sensors
+                    await self.async_refresh()
                 except asyncio.CancelledError:
                     # Task was cancelled, another update is coming
                     pass
@@ -233,7 +234,8 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             deltas = self.data.get("deltas")
             if deltas and hasattr(deltas, "reason") and deltas.reason in ("not_initialized", "missing_input"):
                 _LOGGER.info("Performing delayed fallback refresh for unavailable entities")
-                await self._async_update_data()
+                # Use async_refresh() to update self.data AND notify sensors
+                await self.async_refresh()
 
         self.hass.async_create_task(_delayed_fallback_refresh())
 

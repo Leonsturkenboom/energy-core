@@ -238,6 +238,17 @@ All notifications:
 
 ## Version history
 
+### 0.5.8
+- **Critical fix: Sensors now receive data updates**: Use async_refresh() instead of _async_update_data()
+  - Event-driven updates now properly notify sensor entities via DataUpdateCoordinator
+  - Fixes issue where sensors stayed at 0 even when input entities had valid data
+  - Both debounced updates and fallback refresh now trigger proper sensor state updates
+- **Fixed all state_class warnings**: Remove device_class from interval-based energy sensors
+  - Interval sensors (kWh per interval) now have device_class=None instead of ENERGY
+  - This allows state_class=MEASUREMENT which is correct for non-cumulative values
+  - Period sensors still use device_class=ENERGY with state_class=TOTAL_INCREASING
+  - Eliminates all Home Assistant warnings about invalid state_class configuration
+
 ### 0.5.7
 - **Fixed AttributeError in delayed fallback refresh**: Correctly access dataclass attributes
   - Fixed "AttributeError: 'EnergyDeltas' object has no attribute 'get'" error
