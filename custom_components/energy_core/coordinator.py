@@ -188,7 +188,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
 
         # Track state changes for all input entities
-        _LOGGER.info(f"Starting event-driven tracking for {len(all_entities)} entities")
+        _LOGGER.info(f"Starting event-driven tracking for {len(all_entities)} entities: {all_entities}")
 
         @callback
         def _handle_state_change(event: Event) -> None:
@@ -197,21 +197,26 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             new_state = event.data.get("new_state")
             old_state = event.data.get("old_state")
 
+            _LOGGER.debug(f"State change detected for {entity_id}")
+
             if new_state is None:
                 return
 
-            # Allow initial state events where old_state is None
-            # This handles the case where entities exist but haven't changed yet
+            # Log the state change for debugging
+            old_val = old_state.state if old_state else "None"
+            new_val = new_state.state
+            _LOGGER.info(f"Energy Core: {entity_id} changed from {old_val} to {new_val}, scheduling update in {self._debounce_delay}s")
 
             # Cancel existing debounce task if any
             if self._update_debounce_task and not self._update_debounce_task.done():
                 self._update_debounce_task.cancel()
+                _LOGGER.debug("Cancelled previous debounce task")
 
             # Schedule new update after debounce delay
             async def _debounced_update():
                 try:
                     await asyncio.sleep(self._debounce_delay)
-                    # Use async_refresh() to update self.data AND notify sensors
+                    _LOGGER.info("Energy Core: Debounce complete, refreshing data")
                     await self.async_refresh()
                 except asyncio.CancelledError:
                     # Task was cancelled, another update is coming

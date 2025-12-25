@@ -238,6 +238,13 @@ All notifications:
 
 ## Version history
 
+### 0.5.10
+- **Added debug logging for event-driven updates**: Diagnose why event listeners may not trigger
+  - Logs which entities are being tracked for state changes
+  - Logs each state change event with old/new values
+  - Logs when debounce completes and refresh is triggered
+  - Helps identify if event listener is registering correctly
+
 ### 0.5.9
 - **Hybrid polling + event-driven mode**: Ensures sensors update even when input entities don't change
   - Added 5-minute polling interval as fallback alongside event-driven updates
