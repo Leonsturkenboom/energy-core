@@ -6,6 +6,7 @@ from homeassistant.const import Platform
 
 from .const import DOMAIN
 from .coordinator import EnergyCoreCoordinator
+from .influxdb_logger import InfluxDBLogger
 
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
@@ -20,11 +21,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_start_listeners()
 
     # Perform initial data fetch to establish baseline
-    # May show "missing_input" if entities aren't ready yet
-    await coordinator.async_refresh()
+    # This properly initializes the coordinator and starts the scheduled refresh timer
+    await coordinator.async_config_entry_first_refresh()
+
+    # Initialize InfluxDB logger
+    influxdb_logger = InfluxDBLogger(hass, entry)
+    await influxdb_logger.async_start()
 
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
+    hass.data[DOMAIN][entry.entry_id] = {
+        "coordinator": coordinator,
+        "influxdb_logger": influxdb_logger,
+    }
 
     # Forward to platforms - sensors can now safely access coordinator.data
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -35,10 +43,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
+        entry_data = hass.data[DOMAIN].get(entry.entry_id, {})
+
         # Stop event listeners
-        coordinator = hass.data[DOMAIN].get(entry.entry_id)
+        coordinator = entry_data.get("coordinator")
         if coordinator:
             await coordinator.async_stop_listeners()
+
+        # Stop InfluxDB logger
+        influxdb_logger = entry_data.get("influxdb_logger")
+        if influxdb_logger:
+            await influxdb_logger.async_stop()
 
         domain_data = hass.data.get(DOMAIN, {})
         domain_data.pop(entry.entry_id, None)

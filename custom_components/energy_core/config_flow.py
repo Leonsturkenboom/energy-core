@@ -4,6 +4,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.helpers import selector
+from homeassistant.core import callback
 
 from .const import (
     DOMAIN,
@@ -15,6 +16,19 @@ from .const import (
     CONF_BATTERY_DISCHARGE_ENTITIES,
     CONF_CO2_INTENSITY_ENTITY,
     CONF_PRESENCE_ENTITY,
+    CONF_TEMPERATURE_SENSOR,
+    CONF_WIND_SENSOR,
+    CONF_SOLAR_SENSOR,
+    CONF_INFLUXDB_ENABLED,
+    CONF_INFLUXDB_URL,
+    CONF_INFLUXDB_TOKEN,
+    CONF_INFLUXDB_ORG,
+    CONF_INFLUXDB_BUCKET,
+    DEFAULT_TEMPERATURE_SENSOR,
+    DEFAULT_WIND_SENSOR,
+    DEFAULT_SOLAR_SENSOR,
+    DEFAULT_INFLUXDB_ORG,
+    DEFAULT_INFLUXDB_BUCKET,
 )
 
 
@@ -29,6 +43,16 @@ def _dedupe(items: list[str]) -> list[str]:
 
 class EnergyCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._data: dict = {}
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        """Get the options flow for this handler."""
+        return EnergyCoreOptionsFlow(config_entry)
 
     def _validate_energy_list(self, entity_ids: list[str]) -> dict[str, str]:
         """
@@ -138,7 +162,9 @@ class EnergyCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_config"
 
             if not errors:
-                return self.async_create_entry(title=DEFAULT_NAME, data=user_input)
+                # Store data and proceed to forecaster step
+                self._data = user_input
+                return await self.async_step_forecaster()
 
         schema = vol.Schema(
             {
@@ -176,4 +202,152 @@ class EnergyCoreConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=schema,
             errors=errors,
             description_placeholders=placeholders,
+        )
+
+    async def async_step_forecaster(self, user_input=None):
+        """Configure weather sensors and InfluxDB for forecaster (optional)."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # Merge forecaster config with main data
+            self._data.update(user_input)
+            return self.async_create_entry(title=DEFAULT_NAME, data=self._data)
+
+        # Build schema with defaults
+        schema = vol.Schema(
+            {
+                # Weather sensors (optional, with defaults)
+                vol.Optional(
+                    CONF_TEMPERATURE_SENSOR,
+                    default=DEFAULT_TEMPERATURE_SENSOR
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False, domain="sensor")
+                ),
+                vol.Optional(
+                    CONF_WIND_SENSOR,
+                    default=DEFAULT_WIND_SENSOR
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False, domain="sensor")
+                ),
+                vol.Optional(
+                    CONF_SOLAR_SENSOR,
+                    default=DEFAULT_SOLAR_SENSOR
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False, domain="sensor")
+                ),
+
+                # InfluxDB settings (optional)
+                vol.Optional(
+                    CONF_INFLUXDB_ENABLED,
+                    default=False
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_INFLUXDB_URL,
+                    default=""
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+                ),
+                vol.Optional(
+                    CONF_INFLUXDB_TOKEN,
+                    default=""
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(
+                    CONF_INFLUXDB_ORG,
+                    default=DEFAULT_INFLUXDB_ORG
+                ): selector.TextSelector(),
+                vol.Optional(
+                    CONF_INFLUXDB_BUCKET,
+                    default=DEFAULT_INFLUXDB_BUCKET
+                ): selector.TextSelector(),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="forecaster",
+            data_schema=schema,
+            errors=errors,
+        )
+
+
+class EnergyCoreOptionsFlow(config_entries.OptionsFlow):
+    """Handle options for Energy Core."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Get current values from options or data
+        current = {**self.config_entry.data, **self.config_entry.options}
+
+        schema = vol.Schema(
+            {
+                # Presence entity
+                vol.Optional(
+                    CONF_PRESENCE_ENTITY,
+                    default=current.get(CONF_PRESENCE_ENTITY, "")
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False)
+                ),
+
+                # Weather sensors
+                vol.Optional(
+                    CONF_TEMPERATURE_SENSOR,
+                    default=current.get(CONF_TEMPERATURE_SENSOR, DEFAULT_TEMPERATURE_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False, domain="sensor")
+                ),
+                vol.Optional(
+                    CONF_WIND_SENSOR,
+                    default=current.get(CONF_WIND_SENSOR, DEFAULT_WIND_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False, domain="sensor")
+                ),
+                vol.Optional(
+                    CONF_SOLAR_SENSOR,
+                    default=current.get(CONF_SOLAR_SENSOR, DEFAULT_SOLAR_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(multiple=False, domain="sensor")
+                ),
+
+                # InfluxDB settings
+                vol.Optional(
+                    CONF_INFLUXDB_ENABLED,
+                    default=current.get(CONF_INFLUXDB_ENABLED, False)
+                ): selector.BooleanSelector(),
+                vol.Optional(
+                    CONF_INFLUXDB_URL,
+                    default=current.get(CONF_INFLUXDB_URL, "")
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.URL)
+                ),
+                vol.Optional(
+                    CONF_INFLUXDB_TOKEN,
+                    default=current.get(CONF_INFLUXDB_TOKEN, "")
+                ): selector.TextSelector(
+                    selector.TextSelectorConfig(type=selector.TextSelectorType.PASSWORD)
+                ),
+                vol.Optional(
+                    CONF_INFLUXDB_ORG,
+                    default=current.get(CONF_INFLUXDB_ORG, DEFAULT_INFLUXDB_ORG)
+                ): selector.TextSelector(),
+                vol.Optional(
+                    CONF_INFLUXDB_BUCKET,
+                    default=current.get(CONF_INFLUXDB_BUCKET, DEFAULT_INFLUXDB_BUCKET)
+                ): selector.TextSelector(),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+            errors=errors,
         )

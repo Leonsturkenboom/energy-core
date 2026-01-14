@@ -205,7 +205,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Log the state change for debugging
             old_val = old_state.state if old_state else "None"
             new_val = new_state.state
-            _LOGGER.info(f"Energy Core: {entity_id} changed from {old_val} to {new_val}, scheduling update in {self._debounce_delay}s")
+            _LOGGER.debug(f"Energy Core: {entity_id} changed from {old_val} to {new_val}, scheduling update in {self._debounce_delay}s")
 
             # Cancel existing debounce task if any
             if self._update_debounce_task and not self._update_debounce_task.done():

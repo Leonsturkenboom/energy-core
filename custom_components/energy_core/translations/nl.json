@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Configureer Homie Energy Core",
-        "description": "Selecteer de sensoren die jouw cumulatieve energie-totalen representeren.\n\nJe mag meerdere sensoren per categorie kiezen.\nKies alleen sensoren met unit kWh of Wh. Kies geen W (vermogen) sensoren.\n\nEnergieflows worden berekend op basis van interval-delta’s.",
+        "description": "Selecteer de sensoren die jouw cumulatieve energie-totalen representeren.\n\nJe mag meerdere sensoren per categorie kiezen.\nKies alleen sensoren met unit kWh of Wh. Kies geen W (vermogen) sensoren.\n\nEnergieflows worden berekend op basis van interval-delta's.",
         "data": {
           "imported_entities": "Welke sensor(en) meten energie-import uit het net?",
           "exported_entities": "Welke sensor(en) meten energie-export naar het net?",
@@ -12,6 +12,20 @@
           "battery_discharge_entities": "Welke sensor(en) meten totale batterij-ontlaadenergie?",
           "co2_intensity_entity": "Welke sensor geeft CO₂-intensiteit (g CO₂-eq/kWh)?",
           "presence_entity": "Optioneel: welke entiteit representeert aanwezigheid / bezetting?"
+        }
+      },
+      "forecaster": {
+        "title": "Forecaster Instellingen (Optioneel)",
+        "description": "Configureer weersensoren voor de energy forecaster add-on.\n\nDeze sensoren leveren data voor de 15-minuten energiesensor die de forecaster gebruikt.\nDefaults zijn ingevuld voor Open-Meteo.",
+        "data": {
+          "temperature_sensor": "Temperatuur sensor (°C)",
+          "wind_sensor": "Windsnelheid sensor (m/s)",
+          "solar_sensor": "Zonne-productie sensor (W)",
+          "influxdb_enabled": "InfluxDB logging inschakelen",
+          "influxdb_url": "InfluxDB URL (laat leeg voor auto-detectie)",
+          "influxdb_token": "InfluxDB token",
+          "influxdb_org": "InfluxDB organisatie",
+          "influxdb_bucket": "InfluxDB bucket"
         }
       }
     },
@@ -22,6 +36,25 @@
       "invalid_device_class": "Eén of meer sensoren hebben geen device_class 'energy'.",
       "invalid_co2_unit": "De gekozen CO₂-intensiteitssensor lijkt geen unit per kWh te gebruiken (bijv. g CO₂/kWh).",
       "invalid_config": "De configuratie is ongeldig. Controleer de bovenstaande velden."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Energy Core Instellingen",
+        "description": "Configureer forecaster en InfluxDB instellingen.\n\nWeersensoren leveren data voor de 15-minuten energiesensor die door de forecaster add-on wordt gebruikt.",
+        "data": {
+          "presence_entity": "Aanwezigheid entiteit (bijv. select.hm_home_status)",
+          "temperature_sensor": "Temperatuur sensor (°C)",
+          "wind_sensor": "Windsnelheid sensor (m/s)",
+          "solar_sensor": "Zonne-productie sensor (W)",
+          "influxdb_enabled": "InfluxDB logging inschakelen",
+          "influxdb_url": "InfluxDB URL (laat leeg voor auto-detectie)",
+          "influxdb_token": "InfluxDB token",
+          "influxdb_org": "InfluxDB organisatie",
+          "influxdb_bucket": "InfluxDB bucket"
+        }
+      }
     }
   }
 }

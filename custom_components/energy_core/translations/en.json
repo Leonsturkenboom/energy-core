@@ -13,6 +13,20 @@
           "co2_intensity_entity": "Which sensor provides CO₂ intensity (g CO₂-eq/kWh)?",
           "presence_entity": "Optional: which entity represents presence / occupancy?"
         }
+      },
+      "forecaster": {
+        "title": "Forecaster Settings (Optional)",
+        "description": "Configure weather sensors for the energy forecaster add-on.\n\nThese sensors provide data for the 15-minute energy use sensor that the forecaster uses.\nDefaults are pre-filled for Open-Meteo.",
+        "data": {
+          "temperature_sensor": "Temperature sensor (°C)",
+          "wind_sensor": "Wind speed sensor (m/s)",
+          "solar_sensor": "Solar production sensor (W)",
+          "influxdb_enabled": "Enable InfluxDB logging",
+          "influxdb_url": "InfluxDB URL (leave empty for auto-detect)",
+          "influxdb_token": "InfluxDB token",
+          "influxdb_org": "InfluxDB organization",
+          "influxdb_bucket": "InfluxDB bucket"
+        }
       }
     },
     "error": {
@@ -22,6 +36,25 @@
       "invalid_device_class": "One or more sensors do not have device_class 'energy'.",
       "invalid_co2_unit": "The selected CO₂ intensity sensor does not appear to use a unit per kWh (e.g. g CO₂/kWh).",
       "invalid_config": "The configuration is invalid. Please review the fields above."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Energy Core Settings",
+        "description": "Configure forecaster and InfluxDB settings.\n\nWeather sensors provide data for the 15-minute energy sensor used by the forecaster add-on.",
+        "data": {
+          "presence_entity": "Presence entity (e.g., select.hm_home_status)",
+          "temperature_sensor": "Temperature sensor (°C)",
+          "wind_sensor": "Wind speed sensor (m/s)",
+          "solar_sensor": "Solar production sensor (W)",
+          "influxdb_enabled": "Enable InfluxDB logging",
+          "influxdb_url": "InfluxDB URL (leave empty for auto-detect)",
+          "influxdb_token": "InfluxDB token",
+          "influxdb_org": "InfluxDB organization",
+          "influxdb_bucket": "InfluxDB bucket"
+        }
+      }
     }
   }
 }
