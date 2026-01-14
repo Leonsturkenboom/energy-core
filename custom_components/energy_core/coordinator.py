@@ -292,13 +292,10 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         discharge_entities = data.get(CONF_BATTERY_DISCHARGE_ENTITIES, [])
         co2_entity = data.get(CONF_CO2_INTENSITY_ENTITY)
 
-        # Read REQUIRED totals strictly (None => invalidate interval)
-        # Only imported and exported are truly required for basic energy accounting
-        cur_imported = self._sum_energy_kwh_strict(imported_entities, log_issues=True)
-        cur_exported = self._sum_energy_kwh_strict(exported_entities, log_issues=True)
-
-        # Read OPTIONAL totals leniently (unavailable => treat as 0)
-        # This allows the integration to work without solar panels or battery
+        # Read ALL totals leniently (unavailable => treat as 0)
+        # This allows the integration to work even if some sensors are temporarily unavailable
+        cur_imported = self._sum_energy_kwh_lenient(imported_entities)
+        cur_exported = self._sum_energy_kwh_lenient(exported_entities)
         cur_produced = self._sum_energy_kwh_lenient(produced_entities)
         cur_charge = self._sum_energy_kwh_lenient(charge_entities)
         cur_discharge = self._sum_energy_kwh_lenient(discharge_entities)
@@ -307,30 +304,6 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         co2_intensity = self._read_float_safe(co2_entity) if co2_entity else 0.0
 
         deltas = EnergyDeltas(valid=True, reason=None)
-
-        # Only imported and exported are required - others are optional
-        if cur_imported is None or cur_exported is None:
-            # Log which required entities are unavailable
-            missing = []
-            if cur_imported is None:
-                missing.append(f"imported ({imported_entities})")
-            if cur_exported is None:
-                missing.append(f"exported ({exported_entities})")
-            _LOGGER.warning(f"Missing REQUIRED input entities: {', '.join(missing)}")
-            deltas.valid = False
-            deltas.reason = "missing_input"
-
-            # Keep totals stable (use previous totals if known; otherwise 0s).
-            totals = self._prev_totals or EnergyTotals()
-            totals.co2_intensity_g_per_kwh = co2_intensity
-
-            self._seq += 1
-            return {
-                "totals": totals,
-                "deltas": deltas,
-                "seq": self._seq,
-                "updated_at": dt_util.utcnow().isoformat(),
-            }
 
         # Safe: all current totals exist
         totals = EnergyTotals(
