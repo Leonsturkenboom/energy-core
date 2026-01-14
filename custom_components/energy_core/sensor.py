@@ -525,12 +525,78 @@ class EnergyCoreSumPeriodSensor(CoordinatorEntity[EnergyCoreCoordinator], Sensor
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {
+        attrs = {
             "period_key": self._period.key,
             "period_label": self._period.label,
             "period_start_utc": self._period_start.isoformat() if self._period_start else None,
             "last_seq": self._last_seq,
         }
+
+        # Add forecaster attributes for the 15m net energy use sensor
+        if self._base.key == "ec_net_energy_use" and self._period.key == "p15m":
+            attrs.update(self._get_forecaster_attributes())
+
+        return attrs
+
+    def _get_forecaster_attributes(self) -> dict[str, Any]:
+        """Get weather/presence attributes for the forecaster add-on."""
+        from .const import (
+            CONF_PRESENCE_ENTITY,
+            CONF_TEMPERATURE_SENSOR,
+            CONF_WIND_SENSOR,
+        )
+
+        config = {**self.coordinator.entry.data, **self.coordinator.entry.options}
+        attrs = {}
+
+        # Read presence
+        presence_entity = config.get(CONF_PRESENCE_ENTITY)
+        if presence_entity:
+            state = self.hass.states.get(presence_entity)
+            if state and state.state not in ("unknown", "unavailable"):
+                attrs["presence"] = state.state
+
+        # Read temperature
+        temp_entity = config.get(CONF_TEMPERATURE_SENSOR)
+        if temp_entity:
+            temp = self._read_float_attr(temp_entity)
+            if temp is not None:
+                attrs["outside_temperature_meteo"] = temp
+
+        # Read wind speed
+        wind_entity = config.get(CONF_WIND_SENSOR)
+        if wind_entity:
+            wind = self._read_float_attr(wind_entity)
+            if wind is not None:
+                attrs["outside_wind_speed"] = wind
+
+        # Read shortwave radiation from open_meteo_weather sensor
+        meteo_state = self.hass.states.get("sensor.open_meteo_weather")
+        if meteo_state:
+            current = meteo_state.attributes.get("current")
+            if isinstance(current, dict) and "shortwave_radiation" in current:
+                try:
+                    attrs["shortwave_radiation"] = round(float(current["shortwave_radiation"]), 1)
+                except (ValueError, TypeError):
+                    pass
+
+        # Read daytime from hm_nighttime binary sensor (inverted)
+        nighttime_state = self.hass.states.get("binary_sensor.hm_nighttime")
+        if nighttime_state and nighttime_state.state not in ("unknown", "unavailable"):
+            # nighttime off = daytime yes, nighttime on = daytime no
+            attrs["daytime"] = "yes" if nighttime_state.state == "off" else "no"
+
+        return attrs
+
+    def _read_float_attr(self, entity_id: str) -> Optional[float]:
+        """Read a float value from a sensor entity."""
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in ("unknown", "unavailable", "none", ""):
+            return None
+        try:
+            return float(state.state)
+        except (ValueError, TypeError):
+            return None
 
 
 # -----------------------------
@@ -709,139 +775,6 @@ class EnergyCoreNotificationSensor(CoordinatorEntity[EnergyCoreCoordinator], Sen
 
 
 # -----------------------------
-# 15-minute sensor for Energy Forecaster
-# -----------------------------
-class EnergyCoreNetEnergy15mSensor(CoordinatorEntity[EnergyCoreCoordinator], SensorEntity):
-    """
-    15-minute net energy sensor designed for the Energy Forecaster add-on.
-
-    This sensor accumulates net energy use (imported + produced - exported) over
-    15-minute periods and exposes weather/presence attributes that the forecaster
-    uses as features for prediction.
-    """
-    _attr_has_entity_name = True
-    _attr_icon = "mdi:chart-timeline-variant"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _attr_native_unit_of_measurement = "kWh"
-
-    def __init__(self, coordinator: EnergyCoreCoordinator, store: AccumulatorStore) -> None:
-        super().__init__(coordinator)
-        self._store = store
-
-        self._attr_unique_id = f"{coordinator.entry.entry_id}_ec_net_energy_use_on_site_15m"
-        self._attr_name = "EC Net Energy Use On-site 15m"
-
-        self._period_start: Optional[datetime] = None
-        self._sum: float = 0.0
-        self._last_seq: int = 0
-        self._loaded = False
-
-        self._base_key = "ec_net_energy_use_on_site_15m"
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        await self._store.async_load()
-
-        rec = self._store.get(self._base_key, "p15m")
-        if rec:
-            try:
-                start_raw = rec.get("start")
-                self._sum = float(rec.get("sum", 0.0))
-                self._last_seq = int(rec.get("last_seq", 0))
-                start = dt_util.parse_datetime(start_raw) if start_raw else None
-                if start is not None:
-                    self._period_start = start if start.tzinfo else dt_util.as_utc(start)
-            except Exception:
-                pass
-
-        self._loaded = True
-
-    def _reset_if_needed(self, now: datetime) -> None:
-        start = _start_15m(now)
-        if self._period_start != start:
-            self._period_start = start
-            self._sum = 0.0
-            self._last_seq = 0
-
-    @property
-    def native_value(self) -> float:
-        now = dt_util.utcnow()
-        self._reset_if_needed(now)
-
-        cur_seq = _seq(self.coordinator)
-        if cur_seq != self._last_seq:
-            if _interval_valid(self.coordinator):
-                d = _deltas(self.coordinator)
-                # Net energy use = imported + produced - exported
-                net_use = d.dA_imported_kwh + d.dC_produced_kwh - d.dB_exported_kwh
-                self._sum = round(self._sum + max(0.0, net_use), 6)
-
-            self._last_seq = cur_seq
-
-            if self._loaded:
-                rec = {
-                    "start": self._period_start.isoformat() if self._period_start else None,
-                    "sum": float(self._sum),
-                    "last_seq": int(self._last_seq),
-                }
-                self.hass.async_create_task(self._store.async_set(self._base_key, "p15m", rec))
-
-        return round(self._sum, 6)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return extra attributes including weather data for forecaster."""
-        from .const import (
-            CONF_PRESENCE_ENTITY,
-            CONF_TEMPERATURE_SENSOR,
-            CONF_WIND_SENSOR,
-            CONF_SOLAR_SENSOR,
-        )
-
-        config = {**self.coordinator.entry.data, **self.coordinator.entry.options}
-
-        # Read weather/presence data
-        presence = None
-        presence_entity = config.get(CONF_PRESENCE_ENTITY)
-        if presence_entity:
-            state = self.hass.states.get(presence_entity)
-            if state and state.state not in ("unknown", "unavailable"):
-                presence = state.state
-
-        temperature = self._read_float(config.get(CONF_TEMPERATURE_SENSOR))
-        wind_speed = self._read_float(config.get(CONF_WIND_SENSOR))
-        solar_radiation = self._read_float(config.get(CONF_SOLAR_SENSOR))
-
-        attrs = {
-            "period_start_utc": self._period_start.isoformat() if self._period_start else None,
-            "last_seq": self._last_seq,
-        }
-
-        if presence:
-            attrs["presence"] = presence
-        if temperature is not None:
-            attrs["outside_temperature_meteo"] = temperature
-        if wind_speed is not None:
-            attrs["outside_wind_speed"] = wind_speed
-        if solar_radiation is not None:
-            attrs["shortwave_radiation"] = solar_radiation
-
-        return attrs
-
-    def _read_float(self, entity_id: Optional[str]) -> Optional[float]:
-        """Read a float value from a sensor entity."""
-        if not entity_id:
-            return None
-        state = self.hass.states.get(entity_id)
-        if state is None or state.state in ("unknown", "unavailable", "none", ""):
-            return None
-        try:
-            return float(state.state)
-        except (ValueError, TypeError):
-            return None
-
-
-# -----------------------------
 # Setup
 # -----------------------------
 async def async_setup_entry(
@@ -879,9 +812,4 @@ async def async_setup_entry(
     for rule in NOTIFICATION_RULES:
         notification_entities.append(EnergyCoreNotificationSensor(coordinator, rule.key, rule.name))
 
-    # Forecaster sensor (15-minute net energy with weather attributes)
-    forecaster_entities: List[SensorEntity] = [
-        EnergyCoreNetEnergy15mSensor(coordinator, store),
-    ]
-
-    async_add_entities(base_entities + period_entities + notification_entities + forecaster_entities)
+    async_add_entities(base_entities + period_entities + notification_entities)
