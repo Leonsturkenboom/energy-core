@@ -61,7 +61,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             hass,
             logger=_LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=300),  # Hybrid: polling fallback every 5 min + event-driven
+            update_interval=None,  # Event-driven, no polling
         )
 
         self._prev_totals: Optional[EnergyTotals] = None
@@ -79,9 +79,9 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # State change listeners
         self._state_listeners = []
 
-        # Debouncing for energy updates (1 second - must be shorter than P1 meter update interval)
+        # Debouncing for energy updates (10 seconds)
         self._update_debounce_task: Optional[asyncio.Task] = None
-        self._debounce_delay = 1  # seconds
+        self._debounce_delay = 10  # seconds
 
         # Initialize data to prevent None errors during sensor setup
         self.data = {
@@ -188,7 +188,7 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
 
         # Track state changes for all input entities
-        _LOGGER.info(f"Starting event-driven tracking for {len(all_entities)} entities: {all_entities}")
+        _LOGGER.info(f"Starting event-driven tracking for {len(all_entities)} entities")
 
         @callback
         def _handle_state_change(event: Event) -> None:
@@ -197,26 +197,21 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             new_state = event.data.get("new_state")
             old_state = event.data.get("old_state")
 
-            _LOGGER.debug(f"State change detected for {entity_id}")
-
             if new_state is None:
                 return
 
-            # Log the state change for debugging
-            old_val = old_state.state if old_state else "None"
-            new_val = new_state.state
-            _LOGGER.debug(f"Energy Core: {entity_id} changed from {old_val} to {new_val}, scheduling update in {self._debounce_delay}s")
+            # Allow initial state events where old_state is None
+            # This handles the case where entities exist but haven't changed yet
 
             # Cancel existing debounce task if any
             if self._update_debounce_task and not self._update_debounce_task.done():
                 self._update_debounce_task.cancel()
-                _LOGGER.debug("Cancelled previous debounce task")
 
             # Schedule new update after debounce delay
             async def _debounced_update():
                 try:
                     await asyncio.sleep(self._debounce_delay)
-                    _LOGGER.info("Energy Core: Debounce complete, refreshing data")
+                    # Use async_refresh() to update self.data AND notify sensors
                     await self.async_refresh()
                 except asyncio.CancelledError:
                     # Task was cancelled, another update is coming
@@ -232,7 +227,19 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._state_listeners.append(remove_listener)
 
-        _LOGGER.info("Hybrid mode active: event-driven + 5-minute polling fallback")
+        # Schedule a delayed refresh as fallback for entities that exist but haven't changed
+        # This ensures we catch entities that were already available at startup
+        async def _delayed_fallback_refresh():
+            await asyncio.sleep(15)  # Wait 15 seconds
+            deltas = self.data.get("deltas")
+            if deltas and hasattr(deltas, "reason") and deltas.reason in ("not_initialized", "missing_input"):
+                _LOGGER.info("Performing delayed fallback refresh for unavailable entities")
+                # Use async_refresh() to update self.data AND notify sensors
+                await self.async_refresh()
+
+        self.hass.async_create_task(_delayed_fallback_refresh())
+
+        _LOGGER.info("Event-driven delta calculation active")
 
     async def async_stop_listeners(self) -> None:
         """Stop all state change listeners."""
