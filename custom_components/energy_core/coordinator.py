@@ -94,21 +94,27 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     # -----------------------------
     # Safe parsing helpers
     # -----------------------------
-    def _read_energy_total_kwh(self, entity_id: str) -> Optional[float]:
+    def _read_energy_total_kwh(self, entity_id: str, log_issues: bool = False) -> Optional[float]:
         """Read a cumulative energy total and convert to kWh.
         Returns None if missing/unknown/unavailable/invalid.
         """
         st = self.hass.states.get(entity_id)
         if st is None:
+            if log_issues:
+                _LOGGER.debug(f"Entity {entity_id}: does not exist")
             return None
 
         s = str(st.state).lower().strip()
         if s in ("unknown", "unavailable", "none", ""):
+            if log_issues:
+                _LOGGER.debug(f"Entity {entity_id}: state is '{st.state}'")
             return None
 
         try:
             val = float(st.state)
         except (ValueError, TypeError):
+            if log_issues:
+                _LOGGER.debug(f"Entity {entity_id}: state '{st.state}' is not a valid number")
             return None
 
         unit = (st.attributes.get("unit_of_measurement") or "").lower().strip()
@@ -118,9 +124,11 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return val
 
         # Unit should have been validated in config flow, but keep this safe:
+        if log_issues:
+            _LOGGER.warning(f"Entity {entity_id}: unit '{unit}' is not wh or kwh, ignoring")
         return None
 
-    def _sum_energy_kwh_strict(self, entity_ids: list[str]) -> Optional[float]:
+    def _sum_energy_kwh_strict(self, entity_ids: list[str], log_issues: bool = False) -> Optional[float]:
         """Sum kWh totals across entities.
         Strict: if any entity is missing/invalid -> None (invalidate interval).
         """
@@ -129,10 +137,25 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         total = 0.0
         for eid in entity_ids:
-            v = self._read_energy_total_kwh(eid)
+            v = self._read_energy_total_kwh(eid, log_issues=log_issues)
             if v is None:
                 return None
             total += v
+
+        return round(total, 6)
+
+    def _sum_energy_kwh_lenient(self, entity_ids: list[str]) -> float:
+        """Sum kWh totals across entities.
+        Lenient: if entity is missing/invalid, treat as 0 (for optional sensors).
+        """
+        if not entity_ids:
+            return 0.0
+
+        total = 0.0
+        for eid in entity_ids:
+            v = self._read_energy_total_kwh(eid)
+            if v is not None:
+                total += v
 
         return round(total, 6)
 
@@ -269,34 +292,31 @@ class EnergyCoreCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         discharge_entities = data.get(CONF_BATTERY_DISCHARGE_ENTITIES, [])
         co2_entity = data.get(CONF_CO2_INTENSITY_ENTITY)
 
-        # Read strict totals (None => invalidate interval)
-        cur_imported = self._sum_energy_kwh_strict(imported_entities)
-        cur_exported = self._sum_energy_kwh_strict(exported_entities)
-        cur_produced = self._sum_energy_kwh_strict(produced_entities)
-        cur_charge = self._sum_energy_kwh_strict(charge_entities)
-        cur_discharge = self._sum_energy_kwh_strict(discharge_entities)
+        # Read REQUIRED totals strictly (None => invalidate interval)
+        # Only imported and exported are truly required for basic energy accounting
+        cur_imported = self._sum_energy_kwh_strict(imported_entities, log_issues=True)
+        cur_exported = self._sum_energy_kwh_strict(exported_entities, log_issues=True)
+
+        # Read OPTIONAL totals leniently (unavailable => treat as 0)
+        # This allows the integration to work without solar panels or battery
+        cur_produced = self._sum_energy_kwh_lenient(produced_entities)
+        cur_charge = self._sum_energy_kwh_lenient(charge_entities)
+        cur_discharge = self._sum_energy_kwh_lenient(discharge_entities)
 
         # CO2 intensity isn't a cumulative meter; treat as best-effort float.
         co2_intensity = self._read_float_safe(co2_entity) if co2_entity else 0.0
 
         deltas = EnergyDeltas(valid=True, reason=None)
 
-        # If any required totals are missing/invalid, mark interval invalid and DO NOT touch prev_totals.
-        # This avoids "prev_total = 0" spikes that poison day/month/year.
-        if any(v is None for v in (cur_imported, cur_exported, cur_produced, cur_charge, cur_discharge)):
-            # Log which entities are unavailable for debugging
+        # Only imported and exported are required - others are optional
+        if cur_imported is None or cur_exported is None:
+            # Log which required entities are unavailable
             missing = []
             if cur_imported is None:
                 missing.append(f"imported ({imported_entities})")
             if cur_exported is None:
                 missing.append(f"exported ({exported_entities})")
-            if cur_produced is None:
-                missing.append(f"produced ({produced_entities})")
-            if cur_charge is None:
-                missing.append(f"charge ({charge_entities})")
-            if cur_discharge is None:
-                missing.append(f"discharge ({discharge_entities})")
-            _LOGGER.warning(f"Missing input entities: {', '.join(missing)}")
+            _LOGGER.warning(f"Missing REQUIRED input entities: {', '.join(missing)}")
             deltas.valid = False
             deltas.reason = "missing_input"
 
